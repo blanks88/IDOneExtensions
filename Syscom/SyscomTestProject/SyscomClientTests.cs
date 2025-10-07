@@ -12,7 +12,7 @@ public class SyscomClientTests(ITestOutputHelper testOutputHelper)
             "RPFBY1PHDosiHRpy5K5CGQTxmwufB1ZrJMKx5JRn")
     );
 
-    [Fact]
+    [Fact(Skip = "This test requires a valid Syscom API key")]
     public async Task GetAccessTokenAsync_ShouldReturnAccessToken()
     {
         // arrange
@@ -26,7 +26,7 @@ public class SyscomClientTests(ITestOutputHelper testOutputHelper)
         testOutputHelper.WriteLine($"Access token was received: {result.AccessToken}");
     }
 
-    [Fact]
+    [Fact(Skip = "This test requires a valid Syscom API key")]
     public async Task GetCategoriesAsync_ShouldReturnCategories()
     {
         // arrange
@@ -41,7 +41,7 @@ public class SyscomClientTests(ITestOutputHelper testOutputHelper)
         testOutputHelper.WriteLine(JsonSerializer.Serialize(result));
     }
 
-    [Fact]
+    [Fact(Skip = "This test requires a valid Syscom API key")]
     public async Task GetProductsAsync_ShouldReturnProducts()
     {
         // arrange

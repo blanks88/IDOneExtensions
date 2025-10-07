@@ -1,9 +1,11 @@
+using System.Data.Common;
 using IDOneRepository.Data;
 using IDOneRepository.Data.Entities;
 using IDOneRepository.Repositories;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 
-namespace IDOneRepository.UnitOfWork;
+namespace IDOneRepository;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
@@ -14,15 +16,23 @@ public interface IUnitOfWork : IAsyncDisposable
 
     Task<int> SaveChangesAsync(CancellationToken ct = default);
 
+    // Transactions
     Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default);
     Task CommitTransactionAsync(CancellationToken ct = default);
     Task RollbackTransactionAsync(CancellationToken ct = default);
+
+    // NEW: Raw SQL execution helpers
+    Task<int> ExecuteSqlRawAsync(string sql, List<object>? parameters = null, CancellationToken ct = default);
+    Task<int> ExecuteSqlInterpolatedAsync(FormattableString sql, CancellationToken ct = default);
+
+    // NEW: Safe access to the underlying ADO.NET connection (for COPY, etc.)
+    DbConnection GetConnection();
+    Task EnsureConnectionOpenAsync(CancellationToken ct = default);
 }
 
 public class UnitOfWork : IUnitOfWork
 {
     private readonly IDOneDbContext _context;
-
     private IDbContextTransaction? _currentTransaction;
 
     public UnitOfWork(IDOneDbContext context)
@@ -39,7 +49,8 @@ public class UnitOfWork : IUnitOfWork
     public IRepository<CatalogsMeasurement> CatalogMeasurements { get; }
     public IRepository<Currency> Currencies { get; }
 
-    public Task<int> SaveChangesAsync(CancellationToken ct = default) => _context.SaveChangesAsync(ct);
+    public Task<int> SaveChangesAsync(CancellationToken ct = default)
+        => _context.SaveChangesAsync(ct);
 
     public async Task<IDbContextTransaction> BeginTransactionAsync(CancellationToken ct = default)
     {
@@ -66,6 +77,35 @@ public class UnitOfWork : IUnitOfWork
         return Task.CompletedTask;
     }
 
+    #region Raw SQL helpers
+
+    public Task<int> ExecuteSqlRawAsync(string sql, List<object>? parameters = null,
+        CancellationToken ct = default)
+    {
+        if (parameters is null || parameters.Count == 0)
+            return _context.Database.ExecuteSqlRawAsync(sql, cancellationToken: ct);
+
+        return _context.Database.ExecuteSqlRawAsync(sql, parameters.ToArray(), ct);
+    }
+
+    public Task<int> ExecuteSqlInterpolatedAsync(FormattableString sql, CancellationToken ct = default)
+        => _context.Database.ExecuteSqlInterpolatedAsync(sql, ct);
+
+    #endregion
+
+    #region Connection helpers for bulk/COPY scenarios
+
+    public DbConnection GetConnection() => _context.Database.GetDbConnection();
+
+    public async Task EnsureConnectionOpenAsync(CancellationToken ct = default)
+    {
+        var conn = GetConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync(ct);
+    }
+
+    #endregion
+
     public ValueTask DisposeAsync()
     {
         if (_currentTransaction != null)
@@ -73,6 +113,7 @@ public class UnitOfWork : IUnitOfWork
             _currentTransaction.Dispose();
             _currentTransaction = null;
         }
+
         _context.Dispose();
         return default;
     }

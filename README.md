@@ -2,6 +2,9 @@
 
 This repository contains extensions and data access components for IDigital/IDOne. It includes an IDOneRepository project implementing the Unit of Work + Repository pattern over Entity Framework Core for PostgreSQL.
 
+## Syscom
+Visit [README.md](Syscom/README.md) in the Syscom folder for more information.
+
 ## IDOneRepository
 Location: Syscom/IDOneRepository
 

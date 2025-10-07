@@ -19,14 +19,9 @@ public class SyscomAccessTokenResponse
 public class SyscomProductsSearchResponse
 {
     [JsonPropertyName("productos")] public List<SyscomProduct>? Products { get; set; }
-    [JsonPropertyName("paginacion")] public SyscomPage? Page { get; set; }
-}
-
-public class SyscomPage
-{
-    [JsonPropertyName("pagina_actual")] public int? PaginaActual { get; set; }
-    [JsonPropertyName("paginas")] public int? Paginas { get; set; }
-    [JsonPropertyName("total")] public int? Total { get; set; }
+    [JsonPropertyName("pagina")] public int PaginaActual { get; set; }
+    [JsonPropertyName("paginas")] public int Paginas { get; set; }
+    [JsonPropertyName("cantidad")] public int Total { get; set; }
 }
 
 public partial class SyscomProductResponse
@@ -57,8 +52,8 @@ public partial class SyscomProduct
     [JsonPropertyName("marca")] public string Marca { get; set; }
 
     [JsonPropertyName("sat_key")]
-    [JsonConverter(typeof(SyscomParseStringConverter))]
-    public long SatKey { get; set; }
+    // [JsonConverter(typeof(SyscomParseStringConverter))]
+    public string SatKey { get; set; }
 
     [JsonPropertyName("sat_description")] public string SatDescription { get; set; }
 
@@ -74,16 +69,12 @@ public partial class SyscomProduct
 
     [JsonPropertyName("link")] public string Link { get; set; }
 
-    [JsonPropertyName("imagen_360")] public List<string> Imagen360 { get; set; }
-
-    [JsonPropertyName("iconos")] public List<object> Iconos { get; set; }
-
     [JsonPropertyName("peso")] public string Peso { get; set; }
 
     [JsonPropertyName("unidad_de_medida")] public SyscomMeasurementUnit MeasurementUnit { get; set; }
 
     [JsonPropertyName("precios")] public SyscomPrices Prices { get; set; }
-    
+
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     [JsonPropertyName("proyecto")]
     public bool? Proyecto { get; set; }
@@ -107,11 +98,7 @@ public partial class SyscomPrices
     [JsonPropertyName("precio_especial")] public string PrecioEspecial { get; set; }
 
     [JsonPropertyName("precio_descuento")] public string PrecioDescuento { get; set; }
-
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    [JsonPropertyName("volumen")]
-    public Dictionary<string, string> Volumen { get; set; }
-
+    
     [JsonPropertyName("precio_lista")] public string PrecioLista { get; set; }
 }
 

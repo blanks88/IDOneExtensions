@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syscom", "Syscom", "{FDCB5761-CDDB-403D-A649-000F617E3810}"
 	ProjectSection(SolutionItems) = preProject
 		Syscom\SYSCOM API.postman_collection.json = Syscom\SYSCOM API.postman_collection.json
-		Syscom\Requirements.md = Syscom\Requirements.md
+		Syscom\README.md = Syscom\README.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IDOneRepository", "IDOneRepository\IDOneRepository.csproj", "{15F743D5-B61E-499C-995D-B79607A2E275}"
