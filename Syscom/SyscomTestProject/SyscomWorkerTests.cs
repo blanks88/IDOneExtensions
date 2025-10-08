@@ -28,7 +28,8 @@ public class SyscomWorkerTests
 
     private static IDOneDbContext BuildContext()
     {
-        const string cs = "User ID=blanks88;Host=localhost;Port=5432;Database=one_development;Include Error Detail=true";
+        // const string cs = "User ID=blanks88;Host=localhost;Port=5432;Database=one_development;Include Error Detail=true";
+        const string cs = "User ID=ucq2a6a2im22q7;Password=pae331ddf86eea08f7b4a031ac422058b0c76e3952d8a293761667d09cb8cd437;Host=ec2-3-211-36-220.compute-1.amazonaws.com;Port=5432;Database=dfcb63f4c9513c;Include Error Detail=true";
         var builder = new DbContextOptionsBuilder<IDOneDbContext>();
         builder.UseNpgsql(cs);
         return new IDOneDbContext(builder.Options);
