@@ -47,7 +47,7 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
                     products.AddRange(resp.Products);
                 }
 
-                page = total + 1; // resp.PaginaActual + 1;
+                page = resp.PaginaActual + 1;
             } while (page <= total && !cancellationToken.IsCancellationRequested);
 
             yield return (category, products);

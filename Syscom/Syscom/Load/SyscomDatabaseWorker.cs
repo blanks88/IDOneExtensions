@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using System.Text.RegularExpressions;
 using IDOneRepository;
+using IDOneRepository.Data.Entities;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Syscom.Models;
@@ -39,15 +40,8 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
 
     public async Task BulkInsertAsync(List<SyscomProduct> products, CancellationToken cancellationToken)
     {
-        await uow.EnsureConnectionOpenAsync(cancellationToken);
-        var conn = (NpgsqlConnection)uow.GetConnection();
-
-        var copySql =
-            $"COPY {_tableName} (code,name,details,sat_unit,sat_unit_desc,sat_key,sat_key_desc,price,currency,trade_mark) FROM STDIN (FORMAT BINARY)";
-
-        logger.LogInformation("  > Copying {Count} products to staging table {TableName}", products.Count, _tableName);
-        await using var writer = await conn.BeginBinaryImportAsync(copySql, cancellationToken);
-
+        // Prepare entities for Upsert
+        var entities = new List<SyscomProducts>();
         foreach (var p in products)
         {
             var code = NormalizeCode(p.Modelo);
@@ -71,23 +65,41 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
             }
 
             var mark = Truncate(p.Marca, 70);
-
-            await writer.StartRowAsync(cancellationToken);
-            await writer.WriteAsync(code, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(name, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(details, NpgsqlTypes.NpgsqlDbType.Text, cancellationToken);
-            await writer.WriteAsync(satUnit, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(satUnitDescription, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(satKey, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(satKeyDescription, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(price, NpgsqlTypes.NpgsqlDbType.Numeric, cancellationToken);
-            await writer.WriteAsync(currency, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
-            await writer.WriteAsync(mark, NpgsqlTypes.NpgsqlDbType.Varchar, cancellationToken);
+            entities.Add(new SyscomProducts
+            {
+                Code = code,
+                Name = name,
+                Details = details,
+                SatUnit = satUnit,
+                SatUnitDesc = satUnitDescription,
+                SatKey = satKey,
+                SatKeyDesc = satKeyDescription,
+                Price = price,
+                Currency = currency,
+                TradeMark = mark
+            });
         }
 
-        logger.LogInformation("  > Finished copying {Count} products to staging table {TableName}", products.Count,
+        logger.LogInformation("  > Upserting {Count} products into staging table {TableName}", entities.Count,
             _tableName);
-        await writer.CompleteAsync(cancellationToken);
+
+        var upserted = await uow.SyscomProducts.UpsertRangeAsync(
+            entities, e => e.Code, e => e.Code,
+            (db, ins) => new SyscomProducts
+            {
+                Name = ins.Name,
+                Details = ins.Details,
+                SatUnit = ins.SatUnit,
+                SatUnitDesc = ins.SatUnitDesc,
+                SatKey = ins.SatKey,
+                SatKeyDesc = ins.SatKeyDesc,
+                Price = ins.Price,
+                Currency = ins.Currency,
+                TradeMark = ins.TradeMark
+            }, cancellationToken
+        );
+        logger.LogInformation("  > Finished upserting {Count} products into staging table {TableName}",
+            upserted, _tableName);
     }
 
     public async Task ExecSyncAsync(long companyId, CancellationToken cancellationToken = default)
@@ -135,7 +147,7 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
     {
         var regex = SayKeyRegex();
         // 46171604 Sistemas de alarma, Sistemas de seguridad
-        
+
         return (
             regex.IsMatch(p.SatKey) ? p.SatKey : "46171604",
             Truncate(p.SatDescription, 350) ?? string.Empty
@@ -148,9 +160,8 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
 
     private static string BuildStagingTableName()
     {
-        var tz = TimeZoneInfo.FindSystemTimeZoneById("America/Mexico_City");
-        var localNow = TimeZoneInfo.ConvertTime(DateTimeOffset.UtcNow, tz).DateTime;
-        return $"\"{localNow:yyyyMMdd}_products\"";
+        // Fixed table name to allow EF mapping and Upsert operations
+        return "\"syscom_products_staging\"";
     }
 
     private static string BuildImportSql(string tableName)
@@ -161,7 +172,7 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
                    -- A) SAT products
                        -- 1️⃣ Update existing SAT product titles where code matches the sat_key in staging
                        UPDATE catalogs_sat_products AS sat
-                       SET title = LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_key), 350),
+                       SET title = LEFT(COALESCE(NULLIF(BTRIM(s.sat_key_desc), ''), s.sat_key), 350),
                            updated_at = NOW()
                        FROM {tableName} AS s
                        WHERE sat.code = s.sat_key
@@ -171,7 +182,7 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
                        -- 2️⃣ Insert SAT keys that don't exist yet
                        INSERT INTO catalogs_sat_products (code, title, created_at, updated_at)
                        SELECT DISTINCT s.sat_key,
-                              LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_key), 350),
+                              LEFT(COALESCE(NULLIF(BTRIM(s.sat_key_desc), ''), s.sat_key), 350),
                               NOW(), NOW()
                        FROM {tableName} s
                        WHERE s.sat_key IS NOT NULL
@@ -185,8 +196,8 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
                        -- 1️⃣ Update existing measurement titles/descriptions for matching sat_key + store_type = 0
                        UPDATE catalogs_measurements AS cm
                        SET
-                           title = LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_unit), 70),
-                           sat_description = LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_unit), 350),
+                           title = LEFT(COALESCE(NULLIF(BTRIM(s.sat_unit_desc), ''), s.sat_unit), 70),
+                           sat_description = LEFT(COALESCE(NULLIF(BTRIM(s.sat_unit_desc), ''), s.sat_unit), 350),
                            updated_at = NOW()
                        FROM {tableName} AS s
                        WHERE cm.sat_key = s.sat_unit
@@ -199,8 +210,8 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
                            title, sat_description, sat_key, store_type, created_at, updated_at
                        )
                        SELECT DISTINCT
-                           LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_unit), 70),
-                           LEFT(COALESCE(NULLIF(BTRIM(s.name), ''), s.sat_unit), 350),
+                           LEFT(COALESCE(NULLIF(BTRIM(s.sat_unit_desc), ''), s.sat_unit), 70),
+                           LEFT(COALESCE(NULLIF(BTRIM(s.sat_unit_desc), ''), s.sat_unit), 350),
                            s.sat_unit,
                            0,
                            NOW(),

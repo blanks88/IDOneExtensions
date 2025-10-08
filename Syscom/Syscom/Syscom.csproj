@@ -9,6 +9,7 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.3" />
+        <PackageReference Include="FlexLabs.EntityFrameworkCore.Upsert" Version="8.1.2" />
     </ItemGroup>
 
     <ItemGroup>

@@ -9,6 +9,7 @@ namespace IDOneRepository;
 
 public interface IUnitOfWork : IAsyncDisposable
 {
+    IRepository<SyscomProducts> SyscomProducts { get; }
     IRepository<PortfolioProduct> PortfolioProducts { get; }
     IRepository<CatalogsSatProduct> CatalogSatProducts { get; }
     IRepository<CatalogsMeasurement> CatalogMeasurements { get; }
@@ -38,12 +39,15 @@ public class UnitOfWork : IUnitOfWork
     public UnitOfWork(IDOneDbContext context)
     {
         _context = context;
+        SyscomProducts = new Repository<SyscomProducts>(_context);
         PortfolioProducts = new Repository<PortfolioProduct>(_context);
         CatalogSatProducts = new Repository<CatalogsSatProduct>(_context);
         CatalogMeasurements = new Repository<CatalogsMeasurement>(_context);
         Currencies = new Repository<Currency>(_context);
     }
 
+
+    public IRepository<SyscomProducts> SyscomProducts { get; }
     public IRepository<PortfolioProduct> PortfolioProducts { get; }
     public IRepository<CatalogsSatProduct> CatalogSatProducts { get; }
     public IRepository<CatalogsMeasurement> CatalogMeasurements { get; }

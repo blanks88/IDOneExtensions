@@ -23,6 +23,8 @@ public partial class IDOneDbContext : DbContext
 
     public virtual DbSet<PortfolioProduct> PortfolioProducts { get; set; }
 
+    public virtual DbSet<SyscomProducts> SyscomProductsStaging { get; set; }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.HasPostgresExtension("heroku_ext", "pg_stat_statements");
