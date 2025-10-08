@@ -170,27 +170,27 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
         sb.Append($"""
 
                    -- A) SAT products
-                       -- 1️⃣ Update existing SAT product titles where code matches the sat_key in staging
-                       UPDATE catalogs_sat_products AS sat
-                       SET title = LEFT(COALESCE(NULLIF(BTRIM(s.sat_key_desc), ''), s.sat_key), 350),
-                           updated_at = NOW()
-                       FROM {tableName} AS s
-                       WHERE sat.code = s.sat_key
-                         AND s.sat_key IS NOT NULL
-                         AND BTRIM(s.sat_key) <> '';
-                      
-                       -- 2️⃣ Insert SAT keys that don't exist yet
                        INSERT INTO catalogs_sat_products (code, title, created_at, updated_at)
-                       SELECT DISTINCT s.sat_key,
-                              LEFT(COALESCE(NULLIF(BTRIM(s.sat_key_desc), ''), s.sat_key), 350),
-                              NOW(), NOW()
+                       SELECT DISTINCT ON (TRIM(s.sat_key))
+                           TRIM(s.sat_key) AS code,
+                           LEFT(COALESCE(NULLIF(BTRIM(s.sat_key_desc), ''), s.sat_key), 350) AS title,
+                           NOW() AS created_at,
+                           NOW() AS updated_at
                        FROM {tableName} s
                        WHERE s.sat_key IS NOT NULL
                          AND BTRIM(s.sat_key) <> ''
-                         AND NOT EXISTS (
-                             SELECT 1 FROM catalogs_sat_products csp
-                             WHERE csp.code = s.sat_key
-                         );   
+                       ORDER BY
+                           TRIM(s.sat_key),
+                           CASE WHEN NULLIF(BTRIM(s.sat_key_desc), '') IS NOT NULL THEN 0 ELSE 1 END,
+                           s.sat_key_desc DESC NULLS LAST
+                       ON CONFLICT (code) DO UPDATE
+                           SET
+                               title = CASE
+                                           WHEN (catalogs_sat_products.title IS NULL OR BTRIM(catalogs_sat_products.title) = '')
+                                               THEN EXCLUDED.title
+                                           ELSE catalogs_sat_products.title
+                                   END,
+                               updated_at = NOW();
 
                    -- B) Measurements (store_type=0)
                        -- 1️⃣ Update existing measurement titles/descriptions for matching sat_key + store_type = 0
