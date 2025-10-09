@@ -1,0 +1,920 @@
+{
+	"info": {
+		"_postman_id": "faee10b8-2e06-40b9-b428-e57f549ef1fe",
+		"name": "SYSCOM API",
+		"description": "## SYSCOM API REST | Inicio\n\nA toda persona que use esta recopilación para realizar sus peticiones, espero les sea de gran ayuda para integrar el API REST de SYSCOM a sus proyectos.\n\nNo olviden establecer sus credenciales, en la pestaña de Variables en la raíz de este proyecto y dar click en guardar.\n\nEl primer paso es obtener el **ACCESS_TOKEN**, empieza por ahí después de ingresar tu **CLIENT_ID** y **CLIENT_SECRET**\n\nUna vez que hayas ingresado el ACCESS_TOKEN, puedes revisar las demás peticiones para hacer pruebas.\n\n---\n\nEsto se hizo con poco tiempo así que no van a ver mucha documentación de momento, pero aún así ayuda mucho a hacer pruebas, y más con la exportación del código al lenguaje que estén usando.\n\nAlejandro Arechavala | Programador Depto. Sistemas SYSCOM\n\n---\n\nPara dudas o comentarios escribir a: [alejandro.arechavala@syscom.mx](mailto:alejandro.arechavala@syscom.mx)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "48340979",
+		"_collection_link": "https://mgodinaalusa-2809155.postman.co/workspace/Marco-Godina's-Workspace~9bc8a4c5-6614-424b-8841-e37107ae88c6/collection/48340942-faee10b8-2e06-40b9-b428-e57f549ef1fe?action=share&source=collection_link&creator=48340979"
+	},
+	"item": [
+		{
+			"name": "Inicio | Obtener Access Token",
+			"item": [
+				{
+					"name": "obtener access_token",
+					"event": [
+						{
+							"listen": "prerequest",
+							"script": {
+								"exec": [
+									""
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						},
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"// Parse the JSON response",
+									"let response = pm.response.json();",
+									"",
+									"// Extract the access_token",
+									"let token = response.access_token;",
+									"",
+									"// Set it as an environment variable",
+									"if (token) {",
+									"    pm.environment.set(\"token_api\", token);",
+									"    console.log(\"✅ token_api set successfully:\", token);",
+									"} else {",
+									"    console.error(\"❌ access_token not found in response\");",
+									"}"
+								],
+								"type": "text/javascript",
+								"packages": {}
+							}
+						}
+					],
+					"request": {
+						"auth": {
+							"type": "noauth"
+						},
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"client_id\": \"{{client_id}}\",\n    \"client_secret\": \"{{client_secret}}\", \n    \"grant_type\": \"client_credentials\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/oauth/token",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"oauth",
+								"token"
+							]
+						},
+						"description": "## OBTENER EL ACCESS_TOKEN\n\nPetición para obtener el access_token usando su **CLIENT_ID** y **CLIENT_SECRET** que recibió al momento de iniciar sesión en [https://developers.syscom.mx/login](https://developers.syscom.mx/login) .\n\nLa petición se envía en Body en formato JSON (Body -> raw - JSON).\n\nLa respuesta consta un objeto JSON con 3 propiedades: tipo de token, token y tiempo de expiración. Por defecto los tokens de acceso tienen una vigencia de 365 días.\n\nUna vez obtenido el **VALOR_DEL_ACCESS_TOKEN**, éste se debe agregar a todas las peticiones en la cabecera Authorization. Para hacer esto automáticamente, vaya a la sección de variables (SYSCOM_API -> Variables) y añada el valor del **ACCESS_TOKEN** a la variable token_api. Debe escribir \"**Bearer**\" + \\[espacio\\] + **VALOR_DEL_ACCESS_TOKEN.**"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Categorías",
+			"item": [
+				{
+					"name": "categorias",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": ""
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/categorias",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categorias"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "categorias por id",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/categorias/206",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"categorias",
+								"206"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Facturas",
+			"item": [
+				{
+					"name": "obtener facturas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/facturas",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"facturas"
+							],
+							"query": [
+								{
+									"key": "anio",
+									"value": "2017",
+									"disabled": true
+								},
+								{
+									"key": "busqueda",
+									"value": "FA19/283555",
+									"disabled": true
+								},
+								{
+									"key": "pagina",
+									"value": "",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "facturas detalle",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/facturas?id=FA00/0000",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"facturas"
+							],
+							"query": [
+								{
+									"key": "id",
+									"value": "FA00/0000"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Marcas",
+			"item": [
+				{
+					"name": "marcas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/marcas",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"marcas"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "marcas id",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "urlencoded",
+							"urlencoded": []
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/marcas/hikvision",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"marcas",
+								"hikvision"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "marcas productos",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/marcas/syscom/productos?categoria=499",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"marcas",
+								"syscom",
+								"productos"
+							],
+							"query": [
+								{
+									"key": "categoria",
+									"value": "499"
+								},
+								{
+									"key": "stock",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "agrupar",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "pagina",
+									"value": "1",
+									"disabled": true
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Productos",
+			"item": [
+				{
+					"name": "productos busqueda",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/productos",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"productos"
+							],
+							"query": [
+								{
+									"key": "categoria",
+									"value": "206",
+									"disabled": true
+								},
+								{
+									"key": "marca",
+									"value": "syscom",
+									"disabled": true
+								},
+								{
+									"key": "busqueda",
+									"value": "camaras",
+									"disabled": true
+								},
+								{
+									"key": "sucursal",
+									"value": "mexico_sur",
+									"disabled": true
+								},
+								{
+									"key": "orden",
+									"value": "",
+									"disabled": true
+								},
+								{
+									"key": "stock",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "agrupar",
+									"value": "1",
+									"disabled": true
+								},
+								{
+									"key": "pagina",
+									"value": "1",
+									"disabled": true
+								}
+							]
+						},
+						"description": "**Valores disponibles para el campo \"sucursal\":**\n\n- chihuahua\n    \n- cd_juarez\n    \n- guadalajara\n    \n- hermosillo\n    \n- leon\n    \n- mochis\n    \n- merida\n    \n- mexico\n    \n- mexico_sur\n    \n- monterrey\n    \n- puebla\n    \n- queretaro\n    \n- tijuana\n    \n- villahermosa\n    \n- san_luis_potosi\n    \n- torreon\n    \n- chihuahua_cedi\n    \n- toluca\n    \n- veracruz\n    \n- tepotzotlan\n    \n- culiacan\n    \n- cancun\n    \n- monterrey_centro"
+					},
+					"response": []
+				},
+				{
+					"name": "productos info",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/productos/163327",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"productos",
+								"163327"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "productos relacionados",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/productos/163327/relacionados",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"productos",
+								"163327",
+								"relacionados"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "productos accesorios",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/productos/163327/accesorios",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"productos",
+								"163327",
+								"accesorios"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Utilidades",
+			"item": [
+				{
+					"name": "tipo de cambio",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/tipocambio",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"tipocambio"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Wishlist",
+			"item": []
+		},
+		{
+			"name": "Carrito",
+			"item": [
+				{
+					"name": "obtener direcciones guardadas",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/direcciones",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"direcciones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener direccion por id *",
+					"protocolProfileBehavior": {
+						"disableBodyPruning": true
+					},
+					"request": {
+						"method": "GET",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"2728\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/direcciones",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"direcciones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "crear nueva dirección",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token_api}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"atencion_a\": \"ATENCION A\",\n    \"calle\": \"CALLE\",\n    \"num_ext\": \"123\",\n    \"num_int\": \"\",\n    \"colonia\": \"COLONIA\",\n    \"codigo_postal\": \"CP\",\n    \"pais\": \"PAIS\",\n    \"estado\": \"ESTADO\",\n    \"ciudad\": \"CIUDAD\",\n    \"telefono\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/direcciones",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"direcciones"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "actualizar dirección",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "{{token_api}}",
+								"type": "text"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"1\",\n    \"atencion_a\": \"ATENCION A\",\n    \"calle\": \"CALLE\",\n    \"num_ext\": \"123\",\n    \"num_int\": \"\",\n    \"colonia\": \"COLONIA\",\n    \"codigo_postal\": \"CP\",\n    \"pais\": \"PAIS\",\n    \"estado\": \"ESTADO\",\n    \"ciudad\": \"CIUDAD\",\n    \"telefono\": \"123456\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								""
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "eliminar dirección",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"id\": \"1\"\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/direcciones/2728",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"direcciones",
+								"2728"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener paises",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/paises",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"paises"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener estados",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/estados/31000",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"estados",
+								"31000"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener colonias",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/colonias/31000",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"colonias",
+								"31000"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener metodos de pago",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/pago",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"pago"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener fleteras",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/fleteras",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"fleteras"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener sucursales",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/sucursales",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"sucursales"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener cfdi",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/cfdi",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"cfdi"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "obtener resumen carrito",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tipo_entrega\":\"domicilio\",\n    \"direccion\": {\n        \"atencion_a\": \"PRUEBAS PRUEBAS PRUEBAS\",\n        \"calle\": \"Calle random\",\n        \"num_ext\": \"100\",\n        \"num_int\": \"\",\n        \"colonia\": \"ZONA INDUSTRIAL\",\n        \"codigo_postal\": 44940,\n        \"pais\": \"MÉX\",\n        \"estado\": \"JAL\",\n        \"ciudad\": \"Guadalajara\",\n        \"telefono\": \"1234567890\"\n    },\n    \"metodo_pago\":\"credito-30\",\n    \"fletera\":\"estafeta\",\n    \"productos\":[\n        {\"id\":27949, \"tipo\":\"nuevo\", \"cantidad\": 1 },\n        {\"id\":183694, \"tipo\":\"nuevo\", \"cantidad\": 15 }\n    ],\n    \"moneda\":\"mxn\",\n    \"uso_cfdi\":\"G03\",\n    \"tipo_pago\":\"ppd\",\n    \"orden_compra\":\"ABC-12345\",\n    \"ordenar\":false,\n    \"iva_frontera\":true,\n    \"forzar\":false,\n    \"testmode\":true\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": "https://developers.syscom.mx/api/v1/carrito/generar",
+							"protocol": "https",
+							"host": [
+								"developers",
+								"syscom",
+								"mx"
+							],
+							"path": [
+								"api",
+								"v1",
+								"carrito",
+								"generar"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "generar pedido",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"tipo_entrega\":\"domicilio\",\n    \"direccion\": {\n        \"atencion_a\": \"PRUEBAS PRUEBAS PRUEBAS\",\n        \"calle\": \"Calle random\",\n        \"num_ext\": \"100\",\n        \"num_int\": \"\",\n        \"colonia\": \"ZONA INDUSTRIAL\",\n        \"codigo_postal\": 44940,\n        \"pais\": \"MÉX\",\n        \"estado\": \"JAL\",\n        \"ciudad\": \"Guadalajara\",\n        \"telefono\": \"1234567890\"\n    },\n    \"metodo_pago\":\"credito-30\",\n    \"fletera\":\"estafeta\",\n    \"productos\":[\n        {\"id\":27949, \"tipo\":\"nuevo\", \"cantidad\": 1 },\n        {\"id\":183694, \"tipo\":\"nuevo\", \"cantidad\": 15 }\n    ],\n    \"moneda\":\"mxn\",\n    \"uso_cfdi\":\"G03\",\n    \"tipo_pago\":\"ppd\",\n    \"orden_compra\":\"ABC-12345\",\n    \"ordenar\":false,\n    \"iva_frontera\":true,\n    \"forzar\":false,\n    \"testmode\":false\n}",
+							"options": {
+								"raw": {
+									"language": "json"
+								}
+							}
+						},
+						"url": {
+							"raw": ""
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token_api}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "token_api",
+			"value": "YOUR_ACCESS_TOKEN"
+		},
+		{
+			"key": "client_id",
+			"value": "YOUR_CLIENT_ID",
+			"type": "string"
+		},
+		{
+			"key": "client_secret",
+			"value": "YOUR_CLIENT_SECRET",
+			"type": "string"
+		}
+	]
+}

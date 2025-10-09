@@ -1,8 +1,51 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Syscom", "Syscom", "{FDCB5761-CDDB-403D-A649-000F617E3810}"
+	ProjectSection(SolutionItems) = preProject
+		Syscom\SYSCOM API.postman_collection.json = Syscom\SYSCOM API.postman_collection.json
+		Syscom\README.md = Syscom\README.md
+	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "IDOneRepository", "IDOneRepository\IDOneRepository.csproj", "{15F743D5-B61E-499C-995D-B79607A2E275}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utils", "Utils\Utils.csproj", "{1A212D18-D0B2-496C-9173-BDDAE1FDF65B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Syscom", "Syscom\Syscom\Syscom.csproj", "{0B36B351-0943-44E7-85FD-82BDA69B4F31}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyscomTestProject", "Syscom\SyscomTestProject\SyscomTestProject.csproj", "{36920DE9-4B81-4440-9A91-FF460817A4F8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyscomApp", "Syscom\SyscomApp\SyscomApp.csproj", "{94CFAB45-05D0-4EE8-9626-F9207C956361}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{15F743D5-B61E-499C-995D-B79607A2E275}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{15F743D5-B61E-499C-995D-B79607A2E275}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{15F743D5-B61E-499C-995D-B79607A2E275}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{15F743D5-B61E-499C-995D-B79607A2E275}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1A212D18-D0B2-496C-9173-BDDAE1FDF65B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1A212D18-D0B2-496C-9173-BDDAE1FDF65B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1A212D18-D0B2-496C-9173-BDDAE1FDF65B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1A212D18-D0B2-496C-9173-BDDAE1FDF65B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0B36B351-0943-44E7-85FD-82BDA69B4F31}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B36B351-0943-44E7-85FD-82BDA69B4F31}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B36B351-0943-44E7-85FD-82BDA69B4F31}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B36B351-0943-44E7-85FD-82BDA69B4F31}.Release|Any CPU.Build.0 = Release|Any CPU
+		{36920DE9-4B81-4440-9A91-FF460817A4F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{36920DE9-4B81-4440-9A91-FF460817A4F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{36920DE9-4B81-4440-9A91-FF460817A4F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{36920DE9-4B81-4440-9A91-FF460817A4F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{94CFAB45-05D0-4EE8-9626-F9207C956361}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{94CFAB45-05D0-4EE8-9626-F9207C956361}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{94CFAB45-05D0-4EE8-9626-F9207C956361}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{94CFAB45-05D0-4EE8-9626-F9207C956361}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{0B36B351-0943-44E7-85FD-82BDA69B4F31} = {FDCB5761-CDDB-403D-A649-000F617E3810}
+		{36920DE9-4B81-4440-9A91-FF460817A4F8} = {FDCB5761-CDDB-403D-A649-000F617E3810}
+		{94CFAB45-05D0-4EE8-9626-F9207C956361} = {FDCB5761-CDDB-403D-A649-000F617E3810}
 	EndGlobalSection
 EndGlobal
