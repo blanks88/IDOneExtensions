@@ -127,12 +127,11 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
 
     private static (decimal? price, string? currency) ExtractPriceAndCurrency(SyscomProduct p)
     {
-        var raw = p.Prices?.PrecioLista ?? p.Prices?.Precio1 ??
-            p.Prices?.PrecioEspecial ?? p.Prices?.PrecioDescuento;
+        var raw = p.Prices?.PrecioDescuento ?? p.Prices?.PrecioLista ?? 
+            p.Prices?.Precio1 ?? p.Prices?.PrecioEspecial;
         if (string.IsNullOrWhiteSpace(raw)) return (null, null);
 
-        var currency = raw.Contains("USD", StringComparison.OrdinalIgnoreCase) ? "USD" :
-            raw.Contains("EUR", StringComparison.OrdinalIgnoreCase) ? "EUR" : "MXN";
+        var currency = "USD";
 
         var cleaned = new string(raw.Where(ch => char.IsDigit(ch) || ch == '.' || ch == '-').ToArray());
         return decimal.TryParse(cleaned, NumberStyles.Number, CultureInfo.InvariantCulture, out var val)
@@ -267,6 +266,39 @@ public partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, 
                        catalogs_sat_product_id  = EXCLUDED.catalogs_sat_product_id,
                        updated_at               = NOW();
 
+                   
+                   -- C) price_list update
+                       -- Delete product at every price list with percent-reference
+                       DELETE
+                       FROM portfolio_prices p
+                       WHERE portfolio_price_list_id IN (SELECT id
+                                                         FROM portfolio_price_lists l
+                                                         WHERE NOT l.percent_reference IS NULL);
+                       -- Insert price with percent-reference applies of every list
+                       INSERT INTO portfolio_prices (portfolio_price_list_id, portfolio_product_id, price, created_at, updated_at, auto_update)
+                       SELECT P.id,
+                              product.id, -- c2.iso_title PLC, c.iso_title PC, product.price,
+                              round(
+                                      (
+                                          (CASE
+                                               WHEN c.id = P.currency_id THEN product.price -- same currency (product/ price list)
+                                               WHEN (c2.principal AND NOT COALESCE(c.principal, FALSE))
+                                                   THEN product.price * ex.exchange_rate -- price list currency is principal but product currency is NOT
+                                               WHEN (NOT COALESCE(c2.principal, FALSE) AND c.principal)
+                                                   THEN product.price / ex2.exchange_rate -- product currency is principal but price list is NOT
+                                              END) / case when coalesce(product.pr_quantity, 0) = 0 then 1 else product.pr_quantity end
+                                          ) * (1 + (P.percent_reference / 100))
+                                  , 4),
+                              now(),
+                              now(),
+                              false
+                       FROM portfolio_price_lists P
+                                CROSS JOIN portfolio_products product
+                                INNER JOIN currencies c ON c.id = product.currency_id -- product currency
+                                INNER JOIN exchange_rates ex ON ex.currency_id = c.id AND ex.principal = true
+                                INNER JOIN currencies c2 ON c2.id = P.currency_id -- price list currency
+                                INNER JOIN exchange_rates ex2 ON ex2.currency_id = c2.id AND ex2.principal = true
+                       WHERE NOT percent_reference IS NULL
                    """);
         return sb.ToString();
     }
