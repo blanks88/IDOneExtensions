@@ -1,8 +1,6 @@
-using Synchroteam.Interfaces;
-using Synchroteam.Internal.Http;
-using Synchroteam.Models;
+using Synchroteam.Domain;
 
-namespace Synchroteam.Clients;
+namespace Synchroteam.Infrastructure.Sources;
 
 internal sealed class SitesClient(SynchroteamHttpClient http) : ISitesClient
 {

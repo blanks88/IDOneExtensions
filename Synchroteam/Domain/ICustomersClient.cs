@@ -1,6 +1,4 @@
-using Synchroteam.Models;
-
-namespace Synchroteam.Interfaces;
+namespace Synchroteam.Domain;
 
 public interface ICustomersClient
 {

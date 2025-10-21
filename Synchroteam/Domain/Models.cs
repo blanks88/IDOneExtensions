@@ -1,4 +1,4 @@
-namespace Synchroteam.Models;
+namespace Synchroteam.Domain;
 
 public record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
 

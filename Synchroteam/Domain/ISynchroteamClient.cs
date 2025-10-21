@@ -1,4 +1,4 @@
-namespace Synchroteam.Interfaces;
+namespace Synchroteam.Domain;
 
 public interface ISynchroteamClient : IDisposable
 {

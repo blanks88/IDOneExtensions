@@ -1,0 +1,67 @@
+# Synchroteam Middleware — HTTP Requests
+# Use this file in JetBrains Rider, IntelliJ HTTP Client, or VS Code REST Client extension.
+#
+# Prerequisites to run the middleware locally:
+# - Configure Synchroteam settings via one of the following:
+#   - Environment variables for the middleware process:
+#       SYNCHROTEAM_BASE_URL (e.g., https://yourtenant.synchroteam.com)
+#       SYNCHROTEAM_API_KEY (if your tenant requires it)
+#   - Or set values in Synchroteam/Middleware/appsettings.json under the "Synchroteam" section
+# - Run the middleware project (Synchroteam.Middleware)
+# - Default ASP.NET Core Kestrel ports are typically 5000 (http) and 5001 (https)
+
+### Variables / Environments
+@host = http://localhost:5000
+
+### Health check
+GET {{host}}/health
+Accept: application/json
+
+### Create or upsert a customer by myId/name (no Id provided => POST)
+POST {{host}}/sync-to-st/customer
+Content-Type: application/json
+Accept: application/json
+
+{
+  "myId": "028257",
+  "name": "Jose Martinez",
+  "email": "manolo@itia.mx",
+  "phone": "+52-55-5964-8139",
+  "address": {
+    "line1": "Uxmal 77B 301, Santa Cruz Atoyac",
+    "city": "Benito Juarez",
+    "state": "CDMX",
+    "postalCode": "03310",
+    "country": "MX"
+  }
+}
+
+### Update (upsert) existing customer by numeric Id (=> PUT under the hood)
+POST {{host}}/sync-to-st/customer
+Content-Type: application/json
+Accept: application/json
+
+{
+  "id": 42,
+  "myId": "cust-123",
+  "name": "Acme Corp International",
+  "email": "ops@acme.com",
+  "phone": "+1-555-0100",
+  "address": {
+    "line1": "100 New Ave",
+    "city": "Gotham",
+    "state": "NJ",
+    "postalCode": "07001",
+    "country": "US"
+  }
+}
+
+### Negative test: missing both name and myId (should return 400)
+POST {{host}}/sync-to-st/customer
+Content-Type: application/json
+Accept: application/json
+
+{
+  "email": "noid@example.com"
+}
+

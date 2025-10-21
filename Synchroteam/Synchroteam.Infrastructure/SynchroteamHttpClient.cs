@@ -2,9 +2,8 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using Synchroteam.Exceptions;
 
-namespace Synchroteam.Internal.Http;
+namespace Synchroteam.Infrastructure;
 
 internal sealed class SynchroteamHttpClient : IDisposable
 {

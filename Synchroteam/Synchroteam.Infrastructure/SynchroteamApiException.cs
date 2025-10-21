@@ -1,7 +1,7 @@
 using System.Net;
 using System.Text.Json;
 
-namespace Synchroteam.Exceptions;
+namespace Synchroteam.Infrastructure;
 
 public sealed class SynchroteamApiException(
     HttpStatusCode statusCode,
@@ -19,7 +19,7 @@ public sealed class SynchroteamApiException(
 
     public static SynchroteamApiException FromResponse(HttpStatusCode statusCode, string body, string? requestId = null)
     {
-        var message = $"Synchroteam API responded with status {(int)statusCode} ({statusCode}).";
+        var message = $"Synchroteam.Infrastructure API responded with status {(int)statusCode} ({statusCode}).";
         string? errorCode = null;
         try
         {

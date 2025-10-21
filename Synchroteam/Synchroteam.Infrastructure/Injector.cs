@@ -1,10 +1,10 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using Synchroteam.Interfaces;
+using Synchroteam.Domain;
 
-namespace Synchroteam.DependencyInjection;
+namespace Synchroteam.Infrastructure;
 
-public static class SynchroteamServiceCollectionExtensions
+public static class Injector
 {
     public static IServiceCollection AddSynchroteamClient(this IServiceCollection services, Action<SynchroteamClientOptions> configure)
     {

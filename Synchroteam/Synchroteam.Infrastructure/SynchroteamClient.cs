@@ -1,8 +1,7 @@
-using Synchroteam.Clients;
-using Synchroteam.Interfaces;
-using Synchroteam.Internal.Http;
+using Synchroteam.Domain;
+using Synchroteam.Infrastructure.Sources;
 
-namespace Synchroteam;
+namespace Synchroteam.Infrastructure;
 
 public sealed class SynchroteamClient : ISynchroteamClient
 {

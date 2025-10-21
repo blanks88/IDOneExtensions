@@ -1,11 +1,11 @@
 using System.Net;
 
-namespace Synchroteam;
+namespace Synchroteam.Infrastructure;
 
 public sealed class SynchroteamClientOptions
 {
     /// <summary>
-    /// Base URL of the Synchroteam tenant, e.g. https://yourtenant.synchroteam.com
+    /// Base URL of the Synchroteam.Infrastructure tenant, e.g. https://yourtenant.synchroteam.com
     /// The client will append /api/v3 or the value provided in <see cref="ApiBasePath"/>.
     /// </summary>
     public required Uri BaseAddress { get; init; }

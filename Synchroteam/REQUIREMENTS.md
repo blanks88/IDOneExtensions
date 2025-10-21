@@ -161,3 +161,17 @@ flowchart LR
 - Automated scaling and performance optimization.
 
 ---
+
+## 12. Development Standards
+
+- Use CQRS pattern with MediatR in the Middleware service.
+  - All endpoint business operations should be modeled as commands/queries and handled by IRequestHandlers.
+  - Avoid putting domain logic in Minimal API route handlers; handlers should delegate to MediatR.
+- Validation is mandatory via FluentValidation and runs in the application pipeline.
+  - Register validators and a MediatR validation pipeline behavior to fail fast with HTTP 400 on validation errors.
+  - Keep validators for both transport models (request DTOs) and command/query models when needed.
+- Keep endpoints thin; treat Program.cs as composition root (DI, behaviors, logging).
+- Add unit tests around handlers and validators as the solution evolves.
+- Follow .NET 8 minimal hosting and nullable reference types enabled.
+
+---
