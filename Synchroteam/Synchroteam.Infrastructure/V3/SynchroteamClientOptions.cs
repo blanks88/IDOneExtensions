@@ -1,6 +1,6 @@
 using System.Net;
 
-namespace Synchroteam.Infrastructure;
+namespace Synchroteam.Infrastructure.V3;
 
 public sealed class SynchroteamClientOptions
 {
@@ -8,13 +8,13 @@ public sealed class SynchroteamClientOptions
     /// Base URL of the Synchroteam.Infrastructure tenant, e.g. https://yourtenant.synchroteam.com
     /// The client will append /api/v3 or the value provided in <see cref="ApiBasePath"/>.
     /// </summary>
-    public required Uri BaseAddress { get; init; }
-
+    public required Uri BaseUrl { get; init; }
+    
     /// <summary>
-    /// Relative base path for API. Defaults to "/api/v3".
+    /// API user value. If null, no Authorization header will be sent.
     /// </summary>
-    public string ApiBasePath { get; init; } = "/api/v3";
-
+    public string? Domain { get; init; }
+    
     /// <summary>
     /// API key/token value. If null, no Authorization header will be sent.
     /// </summary>

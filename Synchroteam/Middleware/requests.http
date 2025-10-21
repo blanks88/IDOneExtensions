@@ -4,8 +4,10 @@
 # Prerequisites to run the middleware locally:
 # - Configure Synchroteam settings via one of the following:
 #   - Environment variables for the middleware process:
-#       SYNCHROTEAM_BASE_URL (e.g., https://yourtenant.synchroteam.com)
-#       SYNCHROTEAM_API_KEY (if your tenant requires it)
+#       SYNCHROTEAM_BASE_URL (e.g., https://ws.synchroteam.com)
+#       SYNCHROTEAM_DOMAIN (your Synchroteam domain/company)
+#       SYNCHROTEAM_LOGIN (your Synchroteam login/username)
+#       SYNCHROTEAM_API_KEY (your Synchroteam API key; used as password for Basic Auth)
 #   - Or set values in Synchroteam/Middleware/appsettings.json under the "Synchroteam" section
 # - Run the middleware project (Synchroteam.Middleware)
 # - Default ASP.NET Core Kestrel ports are typically 5000 (http) and 5001 (https)
@@ -17,51 +19,66 @@
 GET {{host}}/health
 Accept: application/json
 
-### Create or upsert a customer by myId/name (no Id provided => POST)
+### Create or upsert a customer (synchroteamId = 0 => create)
 POST {{host}}/sync-to-st/customer
 Content-Type: application/json
 Accept: application/json
 
 {
-  "myId": "028257",
+  "synchroteamId": 0,
+  "sourceId": "028257",
   "name": "Jose Martinez",
-  "email": "manolo@itia.mx",
-  "phone": "+52-55-5964-8139",
-  "address": {
-    "line1": "Uxmal 77B 301, Santa Cruz Atoyac",
-    "city": "Benito Juarez",
-    "state": "CDMX",
-    "postalCode": "03310",
-    "country": "MX"
-  }
+  "addressComplement": "",
+  "addressCity": "Benito Juarez",
+  "addressCountry": "MX",
+  "addressProvince": "CDMX",
+  "addressStreet": "Uxmal 77B 301, Santa Cruz Atoyac",
+  "addressZip": "03310",
+  "contactEmail": "manolo@itia.mx",
+  "contactFirstName": "Jose",
+  "contactFax": "",
+  "contactPhone": "+52-55-5964-8139",
+  "contactLastName": "Martinez",
+  "vatNumber": "",
+  "publicLink": "https://example.com/customer/028257",
+  "position": { "longitude": "-99.162", "latitude": "19.387" },
+  "tags": ["priority", "vip"],
+  "active": true
 }
 
-### Update (upsert) existing customer by numeric Id (=> PUT under the hood)
+### Update (upsert) existing customer by Synchroteam numeric Id
 POST {{host}}/sync-to-st/customer
 Content-Type: application/json
 Accept: application/json
 
 {
-  "id": 42,
-  "myId": "cust-123",
+  "synchroteamId": 42,
+  "sourceId": "cust-123",
   "name": "Acme Corp International",
-  "email": "ops@acme.com",
-  "phone": "+1-555-0100",
-  "address": {
-    "line1": "100 New Ave",
-    "city": "Gotham",
-    "state": "NJ",
-    "postalCode": "07001",
-    "country": "US"
-  }
+  "addressComplement": "HQ Tower, Floor 10",
+  "addressCity": "Gotham",
+  "addressCountry": "US",
+  "addressProvince": "NJ",
+  "addressStreet": "100 New Ave",
+  "addressZip": "07001",
+  "contactEmail": "ops@acme.com",
+  "contactFirstName": "Alice",
+  "contactFax": "",
+  "contactPhone": "+1-555-0100",
+  "contactLastName": "Doe",
+  "vatNumber": "US123456789",
+  "publicLink": "https://example.com/customer/cust-123",
+  "position": { "longitude": "-74.245", "latitude": "40.558" },
+  "tags": ["enterprise"],
+  "active": true
 }
 
-### Negative test: missing both name and myId (should return 400)
+### Negative test: minimal invalid body (likely fails validation when added)
 POST {{host}}/sync-to-st/customer
 Content-Type: application/json
 Accept: application/json
 
 {
-  "email": "noid@example.com"
+  "synchroteamId": 0
 }
 

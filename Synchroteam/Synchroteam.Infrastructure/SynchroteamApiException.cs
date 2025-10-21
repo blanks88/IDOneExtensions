@@ -17,18 +17,22 @@ public sealed class SynchroteamApiException(
     public string? ErrorCode { get; } = errorCode;
     public string? RequestId { get; } = requestId;
 
-    public static SynchroteamApiException FromResponse(HttpStatusCode statusCode, string body, string? requestId = null)
+    public static SynchroteamApiException FromResponse(HttpStatusCode statusCode, string? body, string? requestId = null)
     {
         var message = $"Synchroteam.Infrastructure API responded with status {(int)statusCode} ({statusCode}).";
         string? errorCode = null;
         try
         {
-            using var doc = JsonDocument.Parse(body);
+            using var doc = JsonDocument.Parse(body ?? "{}");
             var root = doc.RootElement;
             if (root.TryGetProperty("message", out var msgProp) && msgProp.ValueKind == JsonValueKind.String)
+            {
                 message = msgProp.GetString() ?? message;
+            }
             if (root.TryGetProperty("error", out var errProp) && errProp.ValueKind == JsonValueKind.String)
+            {
                 errorCode = errProp.GetString();
+            }
         }
         catch
         {

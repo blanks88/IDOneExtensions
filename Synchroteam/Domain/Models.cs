@@ -1,47 +1,83 @@
+using System.Text.Json.Serialization;
+
 namespace Synchroteam.Domain;
 
-public record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalCount);
-
-public record CustomerDto
+public partial class SynchroteamPagedResult<T>
 {
-    public int? Id { get; init; }
-    public string? MyId { get; init; }
-    public string? Name { get; init; }
-    public string? Email { get; init; }
-    public string? Phone { get; init; }
-    public AddressDto? Address { get; init; }
-    public DateTimeOffset? UpdatedAt { get; init; }
+    [JsonPropertyName("page")] public int Page { get; set; } = 1;
+
+    [JsonPropertyName("pageSize")] public int PageSize { get; set; }
+
+    [JsonPropertyName("recordsTotal")] public int RecordsTotal { get; set; }
+
+    [JsonPropertyName("data")] public IReadOnlyList<T> Data { get; set; } = [];
+
+    public bool HasNextPage => Page < RecordsTotal / PageSize + 1;
+
+    public static SynchroteamPagedResult<T> Empty => new();
 }
 
-public record SiteDto
+public partial class SynchroteamCustomer
 {
-    public int? Id { get; init; }
-    public string? MyId { get; init; }
-    public string? Name { get; init; }
-    public int? CustomerId { get; init; }
-    public AddressDto? Address { get; init; }
-    public DateTimeOffset? UpdatedAt { get; init; }
+    [JsonPropertyName("id")] public int SynchroteamId { get; set; }
+
+    [JsonPropertyName("myId")] public string SourceId { get; set; }
+
+    [JsonPropertyName("name")] public string Name { get; set; }
+
+    [JsonPropertyName("address")]
+    public string Address =>
+        $"{AddressStreet}, {AddressCity}, {AddressProvince}, {AddressZip}, {AddressCountry}, {AddressComplement}";
+
+    [JsonPropertyName("addressComplement")]
+    public string AddressComplement { get; set; }
+
+    [JsonPropertyName("addressCity")] public string AddressCity { get; set; }
+
+    [JsonPropertyName("addressCountry")] public string AddressCountry { get; set; }
+
+    [JsonPropertyName("addressProvince")] public string AddressProvince { get; set; }
+
+    [JsonPropertyName("addressStreet")] public string AddressStreet { get; set; }
+
+    [JsonPropertyName("addressZIP")] public string AddressZip { get; set; }
+
+    [JsonPropertyName("contactEmail")] public string ContactEmail { get; set; }
+
+    [JsonPropertyName("contactFirstName")] public string ContactFirstName { get; set; }
+
+    [JsonPropertyName("contactFax")] public string ContactFax { get; set; }
+
+    [JsonPropertyName("contactPhone")] public string ContactPhone { get; set; }
+
+    [JsonPropertyName("contactLastName")] public string ContactLastName { get; set; }
+
+    [JsonPropertyName("vatNumber")] public string VatNumber { get; set; }
+
+    [JsonPropertyName("publicLink")] public Uri PublicLink { get; set; }
+
+    [JsonPropertyName("customFieldValues")]
+    public List<SynchroteamCustomerCustomFieldValue> CustomFieldValues { get; set; }
+
+    [JsonPropertyName("position")] public SynchroteamCustomerPosition Position { get; set; }
+
+    [JsonPropertyName("tags")] public List<string> Tags { get; set; }
+
+    [JsonPropertyName("active")] public bool Active { get; set; }
 }
 
-public record ContactDto
+public partial class SynchroteamCustomerCustomFieldValue
 {
-    public int? Id { get; init; }
-    public string? MyId { get; init; }
-    public string? FirstName { get; init; }
-    public string? LastName { get; init; }
-    public string? Email { get; init; }
-    public string? Phone { get; init; }
-    public int? CustomerId { get; init; }
-    public int? SiteId { get; init; }
-    public DateTimeOffset? UpdatedAt { get; init; }
+    [JsonPropertyName("id")] public int Id { get; set; }
+
+    [JsonPropertyName("label")] public string Label { get; set; }
+
+    [JsonPropertyName("value")] public string Value { get; set; }
 }
 
-public record AddressDto
+public partial class SynchroteamCustomerPosition
 {
-    public string? Line1 { get; init; }
-    public string? Line2 { get; init; }
-    public string? City { get; init; }
-    public string? State { get; init; }
-    public string? PostalCode { get; init; }
-    public string? Country { get; init; }
+    [JsonPropertyName("longitude")] public string Longitude { get; set; }
+
+    [JsonPropertyName("latitude")] public string Latitude { get; set; }
 }
