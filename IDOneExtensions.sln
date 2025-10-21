@@ -17,6 +17,9 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SyscomApp", "Syscom\SyscomApp\SyscomApp.csproj", "{94CFAB45-05D0-4EE8-9626-F9207C956361}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Synchroteam", "Synchroteam", "{0204B926-C9FC-43EE-BCB1-913B3585275E}"
+	ProjectSection(SolutionItems) = preProject
+		Synchroteam\REQUIREMENTS.md = Synchroteam\REQUIREMENTS.md
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Synchroteam", "Synchroteam\Synchroteam\Synchroteam.csproj", "{95F36FE2-8F56-4DA4-8A61-191E99E7D74F}"
 EndProject
