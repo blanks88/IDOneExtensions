@@ -15,7 +15,7 @@ public class SyscomWorkerTests
     );
     private readonly IUnitOfWork _unitOfWork = new UnitOfWork(BuildContext());
     
-    [Fact]
+    [Fact(Skip = "This test requires a valid Syscom API key")]
     public async Task RunWorker_SyncsProducts()
     {
         var loggerFactory = LoggerFactory.Create(_ => { });
