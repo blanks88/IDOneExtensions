@@ -30,8 +30,17 @@ public sealed record SyscomAppConfiguration(
         "SYSCOM_COMPANY_ID"
     ];
 
-    public static SyscomAppConfiguration FromEnvironment()
-        => Parse(EnvironmentNames.ToDictionary(name => name, Environment.GetEnvironmentVariable));
+    public static SyscomAppConfiguration FromEnvironment(string connectionStringVariable = "CONNECTION_STRING")
+    {
+        var values = EnvironmentNames.ToDictionary(name => name, Environment.GetEnvironmentVariable);
+        values["CONNECTION_STRING"] = Environment.GetEnvironmentVariable(connectionStringVariable);
+        try { return Parse(values); }
+        catch (SyscomAppConfigurationException ex)
+        {
+            throw new SyscomAppConfigurationException(
+                ex.Message.Replace("CONNECTION_STRING", connectionStringVariable, StringComparison.Ordinal));
+        }
+    }
 
     public static SyscomAppConfiguration Parse(IReadOnlyDictionary<string, string?> values)
     {
