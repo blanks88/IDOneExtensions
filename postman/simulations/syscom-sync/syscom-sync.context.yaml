@@ -1,0 +1,30 @@
+purpose:
+  stands_in_for: SYSCOM catalog API; local fixtures only, no account or live provider.
+  unblocks: Real HttpClient and worker execution against disposable PostgreSQL with controlled HTTP failures.
+assumptions:
+  - id: legacy-auth-contract
+    status: unknown
+    claim: The configured live account accepts the historical /oauth/token JSON contract.
+    reason: Existing client uses that contract; current official guide describes /api/v1/oauth/token with form encoding. Both are configurable; default retained for compatibility.
+    verification: No live authentication performed. The local fixture accepts JSON and form shapes.
+    source: https://developers.syscom.mx/guide; Syscom/Syscom/SyscomClient.cs
+    updated_at: '2026-10-30'
+  - id: catalog-shape
+    status: supported
+    claim: The fixture returns the pagination and product fields consumed by this repository's models.
+    reason: Fixture fields derive from existing Syscom.Models responses and the repository collection; fixtures do not establish production catalog completeness.
+    verification: Three simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery and bounded failure.
+    source: Syscom/Syscom/Models/Responses.cs; postman/mocks/syscom/default.js
+    updated_at: '2026-10-30'
+  - id: transient-recovery
+    status: supported
+    claim: The caller recovers from a rate limit, expired bearer and transient product outage without partial promotion.
+    reason: Controlled failures exercise caller behavior; they do not assert provider rate-limit policy.
+    verification: Three simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery and bounded failure.
+    source: Syscom/SyscomTestProject/SyscomSimulationTests.cs
+    updated_at: '2026-10-30'
+fingerprints:
+  - id: sync-hardening
+    date: '2026-10-30'
+    commit: 638e297 (implementation base)
+    cli: Postman 1.83.1

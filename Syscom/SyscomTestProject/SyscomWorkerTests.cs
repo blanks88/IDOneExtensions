@@ -7,31 +7,73 @@ using Syscom.Load;
 
 namespace SyscomTestProject;
 
+public sealed class SyscomIntegrationFactAttribute : FactAttribute
+{
+    public SyscomIntegrationFactAttribute()
+    {
+        if (Environment.GetEnvironmentVariable("SYSCOM_RUN_INTEGRATION_TESTS") != "1")
+            Skip = "Live SYSCOM integration tests require SYSCOM_RUN_INTEGRATION_TESTS=1.";
+    }
+}
+
 public class SyscomWorkerTests
 {
-    private readonly SyscomClient _client = new(new HttpClient(),
-        new SyscomClientOptions("s478EpzmgpnoaIw7Q3YVAdLpaEAF3h8L",
-            "RPFBY1PHDosiHRpy5K5CGQTxmwufB1ZrJMKx5JRn")
-    );
-    private readonly IUnitOfWork _unitOfWork = new UnitOfWork(BuildContext());
-    
-    [Fact]
+    [SyscomIntegrationFact]
     public async Task RunWorker_SyncsProducts()
     {
-        var loggerFactory = LoggerFactory.Create(_ => { });
-        var worker = new SyscomWorker(loggerFactory, _client, _unitOfWork);
+        if (Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_DATABASE_ISOLATED") != "1")
+            throw new InvalidOperationException(
+                "Set SYSCOM_INTEGRATION_DATABASE_ISOLATED=1 only after confirming an isolated test database.");
 
-        // act
-        await worker.RunAsync(CancellationToken.None);
+        var configuration = SyscomAppConfiguration.Parse(new Dictionary<string, string?>
+        {
+            ["CONNECTION_STRING"] = Required("SYSCOM_INTEGRATION_CONNECTION_STRING"),
+            ["SYSCOM_CLIENT_ID"] = Required("SYSCOM_INTEGRATION_CLIENT_ID"),
+            ["SYSCOM_CLIENT_SECRET"] = Required("SYSCOM_INTEGRATION_CLIENT_SECRET"),
+            ["SYSCOM_COMPANY_ID"] = Required("SYSCOM_INTEGRATION_COMPANY_ID"),
+            ["SYSCOM_BASE_URL"] = Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_BASE_URL"),
+            ["SYSCOM_OAUTH_TOKEN_PATH"] = Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_OAUTH_TOKEN_PATH"),
+            ["SYSCOM_OAUTH_FORM_ENCODED"] = Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_OAUTH_FORM_ENCODED")
+        });
+
+        try
+        {
+            using var httpClient = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+            var client = new SyscomClient(httpClient,
+                new SyscomClientOptions(configuration.ClientId, configuration.ClientSecret)
+                {
+                    BaseUrl = configuration.BaseUrl,
+                    OAuthTokenPath = configuration.OAuthTokenPath,
+                    UseFormEncodedTokenRequest = configuration.UseFormEncodedTokenRequest,
+                    RequestTimeout = configuration.RequestTimeout
+                });
+            var dbOptions = new DbContextOptionsBuilder<IDOneDbContext>()
+                .UseNpgsql(configuration.ConnectionString)
+                .Options;
+            await using var unitOfWork = new UnitOfWork(new IDOneDbContext(dbOptions));
+            using var loggerFactory = LoggerFactory.Create(_ => { });
+            var worker = new SyscomWorker(loggerFactory, client, unitOfWork,
+                new SyscomSyncOptions
+                {
+                    CompanyId = configuration.CompanyId,
+                    MaximumDuration = configuration.MaximumDuration,
+                    RetentionDays = configuration.RetentionDays
+                });
+
+            await worker.RunAsync(CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            // xUnit prints exception messages; do not expose provider response or DB details.
+            throw new InvalidOperationException($"Integration sync failed ({ex.GetType().Name}).");
+        }
     }
 
-
-    private static IDOneDbContext BuildContext()
+    private static string Required(string name)
     {
-        // const string cs = "User ID=blanks88;Host=localhost;Port=5432;Database=one_development;Include Error Detail=true";
-        const string cs = "User ID=ucq2a6a2im22q7;Password=pae331ddf86eea08f7b4a031ac422058b0c76e3952d8a293761667d09cb8cd437;Host=ec2-3-211-36-220.compute-1.amazonaws.com;Port=5432;Database=dfcb63f4c9513c;Include Error Detail=true";
-        var builder = new DbContextOptionsBuilder<IDOneDbContext>();
-        builder.UseNpgsql(cs);
-        return new IDOneDbContext(builder.Options);
-    }   
+        var value = Environment.GetEnvironmentVariable(name);
+        return !string.IsNullOrWhiteSpace(value)
+            ? value
+            : throw new InvalidOperationException($"Missing required environment variable: {name}.");
+    }
 }

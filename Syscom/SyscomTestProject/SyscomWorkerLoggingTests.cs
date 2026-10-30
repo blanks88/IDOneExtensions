@@ -7,14 +7,17 @@ using Syscom.Models;
 
 namespace SyscomTestProject;
 
+[Collection("Postgres sync")]
 public class SyscomWorkerLoggingTests
 {
-    [Theory]
+    [PostgresTheory]
     [InlineData("success")]
     [InlineData("failure")]
     [InlineData("cancellation")]
-    public async Task RunAsync_LogsActualOutcome(string outcome)
+    public async Task RunAsync_LogsActualOutcomeWithoutExceptionDetails(string outcome)
     {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
         var logger = new Mock<ILogger>();
         logger.Setup(x => x.IsEnabled(It.IsAny<LogLevel>())).Returns(true);
         var messages = new List<(LogLevel Level, string Message)>();
@@ -26,28 +29,21 @@ public class SyscomWorkerLoggingTests
         var factory = new Mock<ILoggerFactory>();
         factory.Setup(x => x.CreateLogger(It.IsAny<string>())).Returns(logger.Object);
         var client = new Mock<ISyscomClient>();
-        client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<SyscomCategory>());
-        var uow = new Mock<IUnitOfWork>();
         using var cts = new CancellationTokenSource();
-        var calls = 0;
-        uow.Setup(x => x.ExecuteSqlRawAsync(It.IsAny<string>(), It.IsAny<List<object>?>(),
-                It.IsAny<CancellationToken>()))
-            .Returns(() =>
-            {
-                if (++calls == 2)
+        if (outcome == "success")
+            client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+                .ReturnsAsync(new List<SyscomCategory>());
+        else if (outcome == "failure")
+            client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+                .ThrowsAsync(new InvalidOperationException("sensitive provider payload"));
+        else
+            client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+                .Returns((CancellationToken token) =>
                 {
-                    if (outcome == "failure") throw new InvalidOperationException("Import failed.");
-                    if (outcome == "cancellation")
-                    {
-                        cts.Cancel();
-                        throw new OperationCanceledException(cts.Token);
-                    }
-                }
-                return Task.FromResult(0);
-            });
-        var worker = new SyscomWorker(factory.Object, client.Object, uow.Object);
-
+                    cts.Cancel();
+                    return Task.FromCanceled<List<SyscomCategory>>(token);
+                });
+        var worker = new SyscomWorker(factory.Object, client.Object, uow);
         if (outcome == "success")
             await worker.RunAsync(cts.Token);
         else if (outcome == "failure")
@@ -55,7 +51,6 @@ public class SyscomWorkerLoggingTests
         else
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.RunAsync(cts.Token));
 
-        Assert.Equal(2, calls);
         var finalMessages = messages.Where(x => x.Message.StartsWith("Syscom sync ") &&
             !x.Message.StartsWith("Syscom sync started")).ToList();
         var final = Assert.Single(finalMessages);
@@ -71,5 +66,6 @@ public class SyscomWorkerLoggingTests
             "failure" => "failed",
             _ => "canceled"
         }, final.Message);
+        Assert.DoesNotContain("sensitive provider payload", final.Message);
     }
 }

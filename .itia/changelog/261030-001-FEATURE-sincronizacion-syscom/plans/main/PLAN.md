@@ -7,21 +7,21 @@
 - Origen: solicitud del usuario de analizar y proponer mejoras a la sincronización.
 - Objetivo: mejorar aislamiento, consumo de memoria y recuperación, conservando el recálculo global.
 - Dependencias: reglas comerciales de bajas y entornos de validación pendientes.
-- Estado: propuesta; implementación y QA no iniciadas.
+- Estado: implementación local terminada, autorizada el 2026-10-30; QA pendiente.
 - Documentación actual: [sincronización SYSCOM](../../../../docs/sincronizacion-syscom.md).
 
-## Tareas propuestas
+## Tareas de implementación
 
 | ID | Alcance y aceptación | Responsable | Carácter | Dependencias | Progreso | Entrega | QA independiente |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| secretos-pruebas | Externalizar credenciales y aislar pruebas; criterios de sección 5 | Sin asignar | Requerida | Configuración de ejecutores | No iniciado | Pendiente | Pendiente |
-| aislamiento | run_id y exclusión mutua; criterios de sección 1 | Sin asignar | Requerida | secretos-pruebas | No iniciado | Pendiente | Pendiente |
-| carga-paginada | Persistir por página; criterios de sección 2 | Sin asignar | Requerida | aislamiento | No iniciado | Pendiente | Pendiente |
-| recuperacion-http | Recuperación y resultados operativos; criterios de sección 3 | Sin asignar | Requerida | secretos-pruebas | No iniciado | Pendiente | Pendiente |
-| promocion-precios | Promoción atómica con alcance global; criterios de sección 4 | Sin asignar | Requerida | carga-paginada | No iniciado | Pendiente | Pendiente |
+| secretos-pruebas | Externalizar credenciales y aislar pruebas; criterios de sección 5 | host | Requerida | Configuración de ejecutores | [Implementado](development/host/secretos-pruebas/PROGRESS.md) | [Entrega](development/host/secretos-pruebas/DELIVERY.md) | Pendiente |
+| aislamiento | run_id y exclusión mutua; criterios de sección 1 | persistence | Requerida | secretos-pruebas | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
+| carga-paginada | Persistir por página; criterios de sección 2 | persistence | Requerida | aislamiento | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
+| recuperacion-http | Recuperación y resultados operativos; criterios de sección 3 | http | Requerida | secretos-pruebas | [Implementado](development/http/recuperacion-http/PROGRESS.md) | [Entrega](development/http/recuperacion-http/DELIVERY.md) | Pendiente |
+| promocion-precios | Promoción atómica con alcance global; criterios de sección 4 | persistence | Requerida | carga-paginada | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
 
 
-Estado: propuesta, sin cambios al comportamiento de ejecución.
+Estado: implementación local terminada en la rama `feature/syscom-sync-hardening`, aislada de cambios pendientes.
 
 ## Decisiones
 
@@ -124,6 +124,24 @@ No se ejecutó la sincronización ni se realizaron escrituras en bases remotas.
 ## Integración y cierre
 
 - Criterios: carga completa, recuperación acotada y promoción atómica; recálculo global preservado.
-- Evaluación: pendiente; no hay implementación ni revisión independiente de estas propuestas.
+- Evaluación: Release y 40 pruebas integradas aprobadas; revisión independiente pendiente.
 - Decisiones pendientes: política de productos ausentes, responsables y entorno de prueba.
 - Alcance confirmado: todas las listas porcentuales y todos los productos elegibles.
+
+## Equipo y alcance de escritura
+
+Selección explícita del usuario: `gpt-6-sol`, esfuerzo alto; subagentes nativos Codex.
+
+| Agente / handle | Tareas | Escritura exclusiva | Reportes |
+| --- | --- | --- | --- |
+| persistence / /root/persistence | aislamiento, carga-paginada, promocion-precios | Workers y pruebas de persistencia/paginación | [Entrega](development/persistence/sync-persistence/DELIVERY.md) |
+| http / /root/http | recuperacion-http | Cliente HTTP, opciones y sus pruebas | [Entrega](development/http/recuperacion-http/DELIVERY.md) |
+| host / /root/host | secretos-pruebas | Consola, configuración y prueba opt-in | [Entrega](development/host/secretos-pruebas/DELIVERY.md) |
+| lead / /root | integración | Simulación, índices, documentación y commits | [Progreso](development/lead/integracion/PROGRESS.md) |
+
+No se incorporan los cambios pendientes de README principal, Docker, Program.cs,
+README.heroku.md ni run-syscom.sh del checkout original. La consola se modifica
+independientemente desde `638e297`; el checkout original permanece intacto.
+No se autoriza despliegue, sincronización remota, publicación ni rotación de secretos.
+
+Verificación integrada: [DELIVERY.md](development/lead/integracion/DELIVERY.md).

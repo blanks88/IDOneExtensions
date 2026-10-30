@@ -19,6 +19,6 @@
 ## Integración y cierre
 
 - Criterios: los definidos en el plan; validación conjunta en PostgreSQL aislado.
-- Tareas: propuestas en main; responsables sin asignar.
-- Estado: planificación propuesta; implementación y QA pendientes.
+- Tareas: asignadas en main al equipo sol6/high.
+- Estado: implementación local terminada; revisión independiente pendiente.
 - Decisión: recálculo global de precios confirmado por el usuario; no restringirlo a SYSCOM.

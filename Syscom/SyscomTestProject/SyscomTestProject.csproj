@@ -25,6 +25,7 @@
 
     <ItemGroup>
       <ProjectReference Include="..\Syscom\Syscom.csproj" />
+      <ProjectReference Include="..\SyscomApp\SyscomApp.csproj" />
     </ItemGroup>
 
 </Project>
