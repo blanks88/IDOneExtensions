@@ -29,29 +29,47 @@ var loggerFactory = LoggerFactory.Create(builder =>
 var worker = new SyscomWorker(loggerFactory, client, unitOfWork);
 
 using var cts = new CancellationTokenSource();
-Console.CancelKeyPress += (_, e) =>
+var cancellationLock = new object();
+var shuttingDown = false;
+ConsoleCancelEventHandler cancelKeyPress = (_, e) =>
 {
-    // Prevent the process from terminating immediately.
-    e.Cancel = true;
-    cts.Cancel();
-};
-AppDomain.CurrentDomain.ProcessExit += (_, _) =>
-{
-    // Ensure we try to cancel ongoing work on SIGTERM (e.g., Docker stop)
-    if (!cts.IsCancellationRequested)
+    lock (cancellationLock)
+    {
+        if (shuttingDown) return;
+        // Prevent the process from terminating immediately while work is active.
+        e.Cancel = true;
         cts.Cancel();
+    }
 };
+EventHandler processExit = (_, _) =>
+{
+    lock (cancellationLock)
+    {
+        if (!shuttingDown && !cts.IsCancellationRequested)
+            cts.Cancel();
+    }
+};
+Console.CancelKeyPress += cancelKeyPress;
+AppDomain.CurrentDomain.ProcessExit += processExit;
 
 try
 {
     await worker.RunAsync(cts.Token);
 }
-catch (OperationCanceledException)
+catch (OperationCanceledException) when (cts.IsCancellationRequested)
 {
     // graceful shutdown
 }
 finally
 {
+    lock (cancellationLock)
+    {
+        // Drain active callbacks and make already-dispatched callbacks harmless
+        // before the using declaration disposes the token source.
+        shuttingDown = true;
+        Console.CancelKeyPress -= cancelKeyPress;
+        AppDomain.CurrentDomain.ProcessExit -= processExit;
+    }
     (Log.Logger as IDisposable)?.Dispose();
 }
 

@@ -35,12 +35,23 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
             // Import SQL (SAT, measurements, portfolio products) from a staging table
             _logger.LogInformation("Syncing SAT, measurements and products into database.");
             await database.ExecSyncAsync(companyId, cancellationToken);
+            sw.Stop();
+            _logger.LogInformation("Syscom sync completed successfully at {EndTime:o}. Total time: {TotalTime}.",
+                DateTimeOffset.Now, sw.Elapsed);
         }
-        finally
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
             sw.Stop();
-            var endTime = DateTimeOffset.Now;
-            _logger.LogInformation("Syscom sync finished at {EndTime:o}. Total time: {TotalTime}.", endTime, sw.Elapsed);
+            _logger.LogWarning("Syscom sync canceled at {EndTime:o}. Total time: {TotalTime}.",
+                DateTimeOffset.Now, sw.Elapsed);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "Syscom sync failed at {EndTime:o}. Total time: {TotalTime}.",
+                DateTimeOffset.Now, sw.Elapsed);
+            throw;
         }
     }
 
