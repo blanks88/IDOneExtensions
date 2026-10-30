@@ -7,7 +7,7 @@ SYSCOM y escribe PostgreSQL; no envía cambios al proveedor ni sincroniza existe
 
 - `SyscomApp`: configuración por entorno, códigos de salida, cancelación y recursos.
 - `SyscomClient`: OAuth, renovación, límites de tiempo y recuperación HTTP.
-- `SyscomWorker`: ejecución secuencial, categorías ordenadas y persistencia por página.
+- `SyscomWorker`: descarga secuencial, categorías ordenadas y escritura solapada por página.
 - `SyscomDatabaseWorker`: bloqueo, historial, staging por ejecución y promoción transaccional.
 - `IDOneRepository`: contexto EF Core y Unit of Work; SQL parametrizado sobre la misma conexión.
 
@@ -21,10 +21,13 @@ flowchart TD
     C -- Adquirido --> D[Crear run_id y registrar Running]
     D --> E[Autenticar y obtener categorías]
     E --> F[Consultar y validar una página]
-    F --> G[Normalizar, detectar colisiones y guardar staging del run_id]
-    G --> H{Quedan páginas o categorías}
+    F --> G[Cola acotada de páginas]
+    F --> H{Quedan páginas o categorías}
     H -- Sí --> F
-    H -- No --> I[Marcar descarga completa]
+    G --> W[Único escritor: normalizar y guardar staging]
+    H -- No --> V[Esperar productor y consumidor]
+    W --> V
+    V --> I[Marcar descarga completa]
     I --> J[Iniciar transacción de promoción]
     J --> K[Actualizar SAT, unidades y productos de la empresa configurada]
     K --> L[Calcular y validar candidatos de precios globales]
@@ -89,6 +92,8 @@ sin secretos está en `Syscom/SyscomApp/environment.example`.
 
 | Variable opcional | Valor por defecto |
 | --- | --- |
+| SYSCOM_PAGE_SIZE | 500; permitido 10–1000 |
+| SYSCOM_BUFFERED_PAGES | 2; permitido 1–16 |
 | SYSCOM_COMPANY_ID | 1 |
 | SYSCOM_RETENTION_DAYS | 30 |
 | SYSCOM_MAXIMUM_DURATION_SECONDS | 1800 |
@@ -125,3 +130,26 @@ retirados del código siguen en el historial Git; su rotación y el cambio de va
 remotas requieren coordinación y no fueron ejecutados en este cambio.
 
 [Plan y estado de implementación](../changelog/261030-001-FEATURE-sincronizacion-syscom/plans/main/PLAN.md).
+
+## Rendimiento y medición
+
+La descarga mantiene una sola petición de productos activa. Mientras llega la página
+siguiente, un único consumidor normaliza y escribe la anterior. La cola aplica
+contrapresión: conserva hasta `SYSCOM_BUFFERED_PAGES` páginas, más una en descarga y
+una en escritura. Los lotes SQL internos siguen limitados a 500 registros.
+Ambas tareas terminan antes de promover o registrar un error; una falla detiene a
+su pareja. Las páginas descargadas no garantizan páginas confirmadas si ocurre una falla.
+
+Cada ejecución registra milisegundos con reloj monótono: preparación, descarga
+(incluidas categorías, autenticación y reintentos), staging, promoción de catálogos,
+recálculo global de precios, promoción completa y tiempo total transcurrido.
+La columna aditiva `syscom_sync_runs.metrics` contiene el snapshot JSON; también se
+emite un resumen en logs. El registro de métricas tiene un límite de cinco segundos
+y no reemplaza el resultado de negocio si falla. Ejecuciones históricas pueden tener
+metrics nulo.
+
+Descarga y staging se solapan; promoción contiene catálogos y precios. **No sumar las
+etapas para obtener el total.** El total persistido se toma antes de guardar métricas
+y liberar el bloqueo; el resumen puede ser ligeramente posterior.
+
+[Plan de rendimiento](../changelog/261030-002-FEATURE-rendimiento-sincronizacion-syscom/plans/main/PLAN.md).

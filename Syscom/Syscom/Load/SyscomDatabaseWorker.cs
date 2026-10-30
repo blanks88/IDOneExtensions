@@ -12,7 +12,8 @@ namespace Syscom.Load;
 
 public sealed class SyscomSyncAlreadyRunningException() : InvalidOperationException("A SYSCOM synchronization is already running.");
 
-public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, IUnitOfWork uow)
+public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> logger, IUnitOfWork uow,
+    SyscomSyncMetrics? metrics = null)
 {
     private const long AdvisoryLockKey = 0x535953434F4D; // SYSCOM, shared by all workers
     private bool _ownsLock;
@@ -56,6 +57,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
 
     public async Task BulkInsertAsync(Guid runId, long categoryId, List<SyscomProduct> products, CancellationToken ct)
     {
+        using var stagingMeasurement = metrics?.Measure(SyscomSyncStage.Staging);
         // A page is the memory boundary. Resolve duplicates before sending bounded JSON batches.
         var unique = new Dictionary<string, StagedProduct>(StringComparer.Ordinal);
         var skipped = 0;
@@ -163,6 +165,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
 
     public async Task ExecSyncAsync(Guid runId, long companyId, CancellationToken ct)
     {
+        using var promotionMeasurement = metrics?.Measure(SyscomSyncStage.Promotion);
         if ((string?)await ScalarAsync("""
                 SELECT stage FROM syscom_sync_runs
                 WHERE run_id=@run AND company_id=@company AND status='Running'
@@ -173,32 +176,36 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         _transaction = transaction.GetDbTransaction();
         try
         {
-            await ExecuteAsync(PromotionSql, ct, ("run", runId), ("company", companyId));
-            var duplicateRates = Convert.ToInt64(await ScalarAsync("""
+            using (metrics?.Measure(SyscomSyncStage.CatalogPromotion))
+                await ExecuteAsync(PromotionSql, ct, ("run", runId), ("company", companyId));
+            using (metrics?.Measure(SyscomSyncStage.PriceRecalculation))
+            {
+                var duplicateRates = Convert.ToInt64(await ScalarAsync("""
                 SELECT count(*) FROM (SELECT currency_id FROM exchange_rates WHERE principal=true
                 GROUP BY currency_id HAVING count(*) > 1) duplicates
                 """, ct));
-            if (duplicateRates > 0)
-                throw new InvalidOperationException("Duplicate principal exchange rates prevent price calculation.");
-            await ExecuteAsync(CandidateSql, ct);
-            var invalid = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates WHERE price IS NULL OR price < 0", ct));
-            var expected = Convert.ToInt64(await ScalarAsync("""
+                if (duplicateRates > 0)
+                    throw new InvalidOperationException("Duplicate principal exchange rates prevent price calculation.");
+                await ExecuteAsync(CandidateSql, ct);
+                var invalid = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates WHERE price IS NULL OR price < 0", ct));
+                var expected = Convert.ToInt64(await ScalarAsync("""
                 SELECT count(*) FROM portfolio_price_lists l CROSS JOIN portfolio_products p
                 WHERE l.percent_reference IS NOT NULL
                 """, ct));
-            var actual = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates", ct));
-            if (invalid != 0 || actual != expected)
-                throw new InvalidOperationException($"Global price candidate validation failed: expected {expected}, actual {actual}, invalid {invalid}.");
-            await ExecuteAsync("""
+                var actual = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates", ct));
+                if (invalid != 0 || actual != expected)
+                    throw new InvalidOperationException($"Global price candidate validation failed: expected {expected}, actual {actual}, invalid {invalid}.");
+                await ExecuteAsync("""
                 DELETE FROM portfolio_prices WHERE portfolio_price_list_id IN
                     (SELECT id FROM portfolio_price_lists WHERE percent_reference IS NOT NULL)
                 """, ct);
-            await ExecuteAsync("""
+                await ExecuteAsync("""
                 INSERT INTO portfolio_prices
                     (portfolio_price_list_id, portfolio_product_id, price, created_at, updated_at, auto_update)
                 SELECT portfolio_price_list_id, portfolio_product_id, price, now(), now(), false
                 FROM syscom_sync_price_candidates
                 """, ct);
+            }
             await ExecuteAsync("""
                 INSERT INTO syscom_sync_missing (run_id, code)
                 SELECT @run, old.code FROM syscom_sync_staging old
@@ -227,6 +234,15 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
     public Task FailRunAsync(Guid runId, string status, CancellationToken ct) => ExecuteAsync("""
         UPDATE syscom_sync_runs SET status=@status, finished_at=now() WHERE run_id=@run AND status='Running'
         """, ct, ("run", runId), ("status", status));
+
+    public Task RecordMetricsAsync(Guid runId, CancellationToken ct)
+    {
+        if (metrics is null) return Task.CompletedTask;
+        if (_transaction is not null)
+            throw new InvalidOperationException("SYSCOM metrics must be recorded outside a promotion or staging transaction.");
+        return ExecuteAsync("UPDATE syscom_sync_runs SET metrics=@metrics::jsonb WHERE run_id=@run",
+            ct, ("metrics", metrics.ToJson()), ("run", runId));
+    }
 
     public async Task ReleaseLockAsync(CancellationToken ct)
     {
@@ -285,8 +301,9 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             status text NOT NULL, stage text NOT NULL, pages_loaded bigint NOT NULL DEFAULT 0,
             products_seen bigint NOT NULL DEFAULT 0, products_skipped bigint NOT NULL DEFAULT 0,
             products_staged bigint NOT NULL DEFAULT 0, products_missing bigint NOT NULL DEFAULT 0,
-            prices_replaced bigint NOT NULL DEFAULT 0);
+            prices_replaced bigint NOT NULL DEFAULT 0, metrics jsonb);
         ALTER TABLE syscom_sync_runs ADD COLUMN IF NOT EXISTS company_id bigint NOT NULL DEFAULT 1;
+        ALTER TABLE syscom_sync_runs ADD COLUMN IF NOT EXISTS metrics jsonb;
         CREATE TABLE IF NOT EXISTS syscom_sync_staging (
             run_id uuid NOT NULL REFERENCES syscom_sync_runs(run_id) ON DELETE CASCADE,
             code varchar(35) NOT NULL, raw_model text NOT NULL, winner_key text NOT NULL,

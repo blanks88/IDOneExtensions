@@ -13,57 +13,43 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
 
     public async Task RunAsync(CancellationToken cancellationToken)
     {
-        if (_options.MaximumDuration <= TimeSpan.Zero || _options.RetentionDays < 1 || _options.CompanyId < 1)
-            throw new ArgumentOutOfRangeException(nameof(options), "Sync duration, retention and company must be positive.");
+        if (_options.MaximumDuration <= TimeSpan.Zero || _options.RetentionDays < 1 || _options.CompanyId < 1 ||
+            _options.PageSize is < 10 or > 1000 || _options.BufferedPages is < 1 or > 16)
+            throw new ArgumentOutOfRangeException(nameof(options),
+                "Sync duration, retention and company must be positive; page size must be 10..1000 and buffered pages 1..16.");
 
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         deadline.CancelAfter(_options.MaximumDuration);
         var ct = deadline.Token;
         var sw = Stopwatch.StartNew();
-        var database = new SyscomDatabaseWorker(loggerFactory.CreateLogger<SyscomDatabaseWorker>(), uow);
+        var metrics = new SyscomSyncMetrics();
+        var database = new SyscomDatabaseWorker(loggerFactory.CreateLogger<SyscomDatabaseWorker>(), uow, metrics);
         Guid? runId = null;
         _logger.LogInformation("Syscom sync started at {StartTime:o}.", DateTimeOffset.UtcNow);
         try
         {
-            runId = await database.BeginRunAsync(_options.RetentionDays, _options.CompanyId, ct);
-            var categories = await client.GetCategoriesAsync(ct);
+            List<SyscomCategory> categories;
+            using (metrics.Measure(SyscomSyncStage.Preparation))
+                runId = await database.BeginRunAsync(_options.RetentionDays, _options.CompanyId, ct);
+
+            using (metrics.Measure(SyscomSyncStage.Download))
+                categories = await client.GetCategoriesAsync(ct);
             _logger.LogInformation("Syscom categories found: {Count}.", categories.Count);
-            foreach (var category in categories.OrderBy(c => c.Id))
-            {
-                var requestedPage = 1;
-                int? totalPages = null;
-                int? expectedProducts = null;
-                var receivedProducts = 0;
-                do
+            await SyscomPagePipeline.RunAsync(categories.OrderBy(c => c.Id).ToArray(), _options.BufferedPages,
+                async (categoryId, page, token) =>
                 {
-                    ct.ThrowIfCancellationRequested();
-                    var response = await client.GetProductsAsync(
-                        new SyscomProductsRequest { Categoria = checked((int)category.Id), Pagina = requestedPage }, ct);
-                    var emptyCatalogue = requestedPage == 1 && (response.Paginas is 0 or 1) &&
-                        response.Total == 0 && response.Products is { Count: 0 };
-                    if (response.Products is null || response.PaginaActual != requestedPage ||
-                        (response.Paginas < requestedPage && !emptyCatalogue) ||
-                        (response.Products.Count == 0 && !emptyCatalogue) ||
-                        (totalPages.HasValue && totalPages.Value != response.Paginas) ||
-                        (response.Total > 0 && expectedProducts.HasValue &&
-                         expectedProducts.Value != response.Total))
-                        throw new InvalidOperationException(
-                            $"SYSCOM pagination did not advance for category {category.Id}, requested page {requestedPage}.");
-                    totalPages = response.Paginas;
-                    if (response.Total > 0) expectedProducts ??= response.Total;
-                    receivedProducts = checked(receivedProducts + response.Products.Count);
-                    if (expectedProducts.HasValue && receivedProducts > expectedProducts.Value)
-                        throw new InvalidOperationException(
-                            $"SYSCOM product count exceeded the declared total for category {category.Id}.");
-                    await database.BulkInsertAsync(runId.Value, category.Id, response.Products, ct);
+                    using (metrics.Measure(SyscomSyncStage.Download))
+                        return await client.GetProductsAsync(new SyscomProductsRequest
+                        {
+                            Categoria = checked((int)categoryId), Pagina = page, Limit = _options.PageSize
+                        }, token);
+                },
+                async (categoryId, page, totalPages, products, token) =>
+                {
+                    await database.BulkInsertAsync(runId.Value, categoryId, products, token);
                     _logger.LogInformation("Syscom category {CategoryId} page {Page} of {TotalPages} staged.",
-                        category.Id, requestedPage, totalPages);
-                    requestedPage++;
-                } while (requestedPage <= totalPages);
-                if (expectedProducts.HasValue && receivedProducts != expectedProducts.Value)
-                    throw new InvalidOperationException(
-                        $"SYSCOM product count did not match the declared total for category {category.Id}.");
-            }
+                        categoryId, page, totalPages);
+                }, ct);
 
             await database.CompleteDownloadAsync(runId.Value, ct);
             await database.ExecSyncAsync(runId.Value, _options.CompanyId, ct);
@@ -85,6 +71,36 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
         }
         finally
         {
+            if (runId.HasValue)
+            {
+                try
+                {
+                    using var metricsCleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                    await database.RecordMetricsAsync(runId.Value, metricsCleanup.Token);
+                }
+                catch (Exception ex)
+                {
+                    try
+                    {
+                        _logger.LogWarning("SYSCOM metrics persistence failed. Error type: {ErrorType}.",
+                            ex.GetType().Name);
+                    }
+                    catch { /* Instrumentation must not replace the sync result or block lock cleanup. */ }
+                }
+            }
+            try
+            {
+                _logger.LogInformation(
+                    "SYSCOM timing summary (ms): total={TotalMs}, preparation={PreparationMs}, download={DownloadMs}, staging={StagingMs}, catalog promotion={CatalogPromotionMs}, global price recalculation={PriceRecalculationMs}, promotion={PromotionMs}.",
+                    metrics.TotalElapsedMilliseconds,
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.Preparation),
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.Download),
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.Staging),
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.CatalogPromotion),
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.PriceRecalculation),
+                    metrics.GetElapsedMilliseconds(SyscomSyncStage.Promotion));
+            }
+            catch { /* Instrumentation must not replace the sync result or block lock cleanup. */ }
             try
             {
                 using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(5));

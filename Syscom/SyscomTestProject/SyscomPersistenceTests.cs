@@ -356,7 +356,7 @@ public class SyscomPersistenceTests
             });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded=1"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded BETWEEN 0 AND 1 AND metrics IS NOT NULL"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code='PAGE-ONE'"));
     }
 
@@ -364,7 +364,7 @@ public class SyscomPersistenceTests
     [InlineData("empty-final", 1)]
     [InlineData("short-total", 2)]
     [InlineData("changed-total", 1)]
-    public async Task IncompletePagination_FailsWithoutPromoting(string scenario, int expectedPages)
+    public async Task IncompletePagination_FailsWithoutPromoting(string scenario, int maximumPages)
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -382,7 +382,7 @@ public class SyscomPersistenceTests
                       Products = scenario == "empty-final" ? [] : [Product("PAGE-B", 2)] });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
-        Assert.Equal(1, await fixture.ScalarAsync($"SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded={expectedPages}"));
+        Assert.Equal(1, await fixture.ScalarAsync($"SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded BETWEEN 0 AND {maximumPages} AND metrics IS NOT NULL"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code IN ('PAGE-A','PAGE-B')"));
     }
 
@@ -453,7 +453,7 @@ public class SyscomPersistenceTests
             });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.RunAsync(cts.Token));
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Cancelled'"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Cancelled' AND metrics IS NOT NULL"));
         Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_prices WHERE portfolio_price_list_id=10 AND price=7"));
     }
 
