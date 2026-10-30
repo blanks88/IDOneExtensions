@@ -65,8 +65,8 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
         catch (Exception ex)
         {
             if (runId.HasValue) await TryFailRunAsync(database, runId.Value, "Failed");
-            _logger.LogError("Syscom sync failed at {EndTime:o}. Total time: {TotalTime}. Error type: {ErrorType}.",
-                DateTimeOffset.UtcNow, sw.Elapsed, ex.GetType().Name);
+            _logger.LogError("Syscom sync failed at {EndTime:o}. Total time: {TotalTime}. Error type: {ErrorType}. Run: {RunId}. Reason: {Reason}.",
+                DateTimeOffset.UtcNow, sw.Elapsed, ex.GetType().Name, runId, SyscomFailureDiagnostics.Describe(ex));
             throw;
         }
         finally

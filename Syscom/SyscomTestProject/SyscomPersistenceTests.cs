@@ -95,7 +95,7 @@ public sealed class PostgresSyncFixture : IAsyncDisposable
         CREATE TABLE exchange_rates (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             currency_id bigint NOT NULL, principal boolean NOT NULL, exchange_rate numeric(14,4) NOT NULL);
         CREATE TABLE portfolio_products (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-            title varchar(350), code varchar(35), catalogs_measurement_id bigint, details text,
+            title varchar(350), code text, catalogs_measurement_id bigint, details text,
             parent_id bigint, created_at timestamptz, updated_at timestamptz, company_id bigint NOT NULL,
             currency_id bigint, price numeric(14,4), trade_mark varchar(70),
             catalogs_sat_product_id bigint, pr_quantity numeric(14,4), UNIQUE(company_id,code));
@@ -164,7 +164,7 @@ public class SyscomPersistenceTests
     }
 
     [PostgresFact]
-    public async Task NormalizedCodeCollision_RejectsSecondPage()
+    public async Task LongModels_WithSharedPrefix_StageBothPages()
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -174,15 +174,14 @@ public class SyscomPersistenceTests
         {
             var prefix = new string('A', 35);
             await db.BulkInsertAsync(run, 1, [Product(prefix + "X", 10)], CancellationToken.None);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => db.BulkInsertAsync(run, 2,
-                [Product(prefix + "Y", 10)], CancellationToken.None));
+            await db.BulkInsertAsync(run, 2, [Product(prefix + "Y", 20)], CancellationToken.None);
         }
         finally { await db.ReleaseLockAsync(CancellationToken.None); }
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(2, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
     }
 
     [PostgresFact]
-    public async Task NormalizedCodeCollision_WithinPageRollsBackEntirePage()
+    public async Task LongModels_WithSharedPrefix_StageBothInOnePage()
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -191,12 +190,11 @@ public class SyscomPersistenceTests
         try
         {
             var prefix = new string('B', 35);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => db.BulkInsertAsync(run, 1,
-                [Product(prefix + "X", 1), Product(prefix + "Y", 2)], CancellationToken.None));
+            await db.BulkInsertAsync(run, 1, [Product(prefix + "X", 1), Product(prefix + "Y", 2)], CancellationToken.None);
         }
         finally { await db.ReleaseLockAsync(CancellationToken.None); }
-        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
-        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded<>0"));
+        Assert.Equal(2, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded=1"));
     }
 
     [PostgresFact]

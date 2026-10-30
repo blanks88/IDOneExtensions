@@ -54,27 +54,32 @@ internal static class SyscomPagePipeline
                         var response = await fetch(category.Id, requestedPage, ct);
                         var emptyCatalogue = requestedPage == 1 && (response.Paginas is 0 or 1) &&
                             response.Total == 0 && response.Products is { Count: 0 };
-                        if (response.Products is null || response.PaginaActual != requestedPage ||
-                            (response.Paginas < requestedPage && !emptyCatalogue) ||
-                            (response.Products.Count == 0 && !emptyCatalogue) ||
-                            (totalPages.HasValue && totalPages.Value != response.Paginas) ||
-                            (response.Total > 0 && expectedProducts.HasValue &&
-                             expectedProducts.Value != response.Total))
-                            throw new InvalidOperationException(
-                                $"SYSCOM pagination did not advance for category {category.Id}, requested page {requestedPage}.");
+                        SyscomFailureReason? paginationFailure = response.Products is null ? SyscomFailureReason.MissingProducts
+                            : response.PaginaActual != requestedPage ? SyscomFailureReason.UnexpectedPage
+                            : response.Paginas < requestedPage && !emptyCatalogue ? SyscomFailureReason.InvalidPageCount
+                            : response.Products.Count == 0 && !emptyCatalogue ? SyscomFailureReason.EmptyPage
+                            : totalPages.HasValue && totalPages.Value != response.Paginas ? SyscomFailureReason.PageCountChanged
+                            : response.Total > 0 && expectedProducts.HasValue && expectedProducts.Value != response.Total
+                                ? SyscomFailureReason.ProductTotalChanged : null;
+                        if (paginationFailure.HasValue)
+                            throw SyscomFailureDiagnostics.Validation(paginationFailure.Value,
+                                category.Id, requestedPage, response.PaginaActual, totalPages, response.Paginas,
+                                expectedProducts, response.Total);
                         totalPages = response.Paginas;
                         if (response.Total > 0) expectedProducts ??= response.Total;
-                        receivedProducts = checked(receivedProducts + response.Products.Count);
+                        receivedProducts = checked(receivedProducts + response.Products!.Count);
                         if (expectedProducts.HasValue && receivedProducts > expectedProducts.Value)
-                            throw new InvalidOperationException(
-                                $"SYSCOM product count exceeded the declared total for category {category.Id}.");
+                            throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.ProductCountExceeded,
+                                category: category.Id, requestedPage: requestedPage,
+                                expectedCount: expectedProducts, actualCount: receivedProducts);
                         await channel.Writer.WriteAsync(
-                            new Page(category.Id, requestedPage, totalPages.Value, response.Products), ct);
+                            new Page(category.Id, requestedPage, totalPages.Value, response.Products!), ct);
                         requestedPage++;
                     } while (requestedPage <= totalPages);
                     if (expectedProducts.HasValue && receivedProducts != expectedProducts.Value)
-                        throw new InvalidOperationException(
-                            $"SYSCOM product count did not match the declared total for category {category.Id}.");
+                        throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.ProductCountMismatch,
+                            category: category.Id, requestedPage: requestedPage - 1,
+                            expectedCount: expectedProducts, actualCount: receivedProducts);
                 }
                 channel.Writer.TryComplete();
             }
@@ -91,7 +96,14 @@ internal static class SyscomPagePipeline
             try
             {
                 await foreach (var page in channel.Reader.ReadAllAsync(ct))
-                    await stage(page.CategoryId, page.Number, page.TotalPages, page.Products, ct);
+                {
+                    try { await stage(page.CategoryId, page.Number, page.TotalPages, page.Products, ct); }
+                    catch (Exception error)
+                    {
+                        SyscomFailureDiagnostics.AddPageContext(error, page.CategoryId, page.Number);
+                        throw;
+                    }
+                }
             }
             catch (Exception error)
             {

@@ -27,6 +27,11 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         _ownsLock = (bool)(await ScalarAsync("SELECT pg_try_advisory_lock(@key)", ct,
             ("key", AdvisoryLockKey)) ?? false);
         if (!_ownsLock) throw new SyscomSyncAlreadyRunningException();
+        if (!(bool)(await ScalarAsync("""
+                SELECT atttypid IN ('text'::regtype,'varchar'::regtype) AND atttypmod=-1
+                FROM pg_attribute WHERE attrelid='portfolio_products'::regclass AND attname='code'
+                """, ct) ?? false))
+            throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.CodeSchemaMigrationRequired);
         await ExecuteAsync(SchemaSql, ct);
         await ExecuteAsync("""
             UPDATE syscom_sync_runs SET status='Failed', stage='Interrupted', finished_at=now()
@@ -90,8 +95,6 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 currency, mark);
             if (unique.TryGetValue(code, out var prior))
             {
-                if (prior.RawModel != rawModel)
-                    throw new InvalidOperationException($"SYSCOM model code collision after normalization: {code}.");
                 if (string.CompareOrdinal(winnerKey, prior.WinnerKey) < 0) unique[code] = row;
             }
             else unique.Add(code, row);
@@ -106,9 +109,6 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             {
                 ct.ThrowIfCancellationRequested();
                 var json = JsonSerializer.Serialize(batch, StageJsonOptions);
-                var collision = await ScalarAsync(CollisionSql, ct, ("run", runId), ("rows", json));
-                if (collision is string collisionCode)
-                    throw new InvalidOperationException($"SYSCOM model code collision after normalization: {collisionCode}.");
                 await ExecuteAsync(StageBatchSql, ct, ("run", runId), ("rows", json));
             }
             await ExecuteAsync("""
@@ -133,14 +133,6 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             products_staged=(SELECT count(*) FROM syscom_sync_staging WHERE run_id=@run)
         WHERE run_id=@run AND status='Running' AND stage='Downloading'
         """, ct, ("run", runId));
-
-    private const string CollisionSql = """
-        SELECT s.code FROM syscom_sync_staging s
-        JOIN jsonb_to_recordset(@rows::jsonb) AS incoming(code text, raw_model text)
-          ON incoming.code=s.code
-        WHERE s.run_id=@run AND s.raw_model<>incoming.raw_model
-        LIMIT 1
-        """;
 
     private const string StageBatchSql = """
         INSERT INTO syscom_sync_staging
@@ -170,14 +162,17 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 SELECT stage FROM syscom_sync_runs
                 WHERE run_id=@run AND company_id=@company AND status='Running'
                 """, ct, ("run", runId), ("company", companyId)) != "Downloaded")
-            throw new InvalidOperationException("Only a completely downloaded SYSCOM run can be promoted.");
+            throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.DownloadIncomplete);
         await ExecuteAsync("UPDATE syscom_sync_runs SET stage='Promoting' WHERE run_id=@run", ct, ("run", runId));
         var transaction = await uow.BeginTransactionAsync(ct);
         _transaction = transaction.GetDbTransaction();
         try
         {
             using (metrics?.Measure(SyscomSyncStage.CatalogPromotion))
+            {
+                await ReconcileLegacyCodesAsync(runId, companyId, ct);
                 await ExecuteAsync(PromotionSql, ct, ("run", runId), ("company", companyId));
+            }
             using (metrics?.Measure(SyscomSyncStage.PriceRecalculation))
             {
                 var duplicateRates = Convert.ToInt64(await ScalarAsync("""
@@ -185,7 +180,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 GROUP BY currency_id HAVING count(*) > 1) duplicates
                 """, ct));
                 if (duplicateRates > 0)
-                    throw new InvalidOperationException("Duplicate principal exchange rates prevent price calculation.");
+                    throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.DuplicateExchangeRates, actualCount: duplicateRates);
                 await ExecuteAsync(CandidateSql, ct);
                 var invalid = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates WHERE price IS NULL OR price < 0", ct));
                 var expected = Convert.ToInt64(await ScalarAsync("""
@@ -194,7 +189,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 """, ct));
                 var actual = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates", ct));
                 if (invalid != 0 || actual != expected)
-                    throw new InvalidOperationException($"Global price candidate validation failed: expected {expected}, actual {actual}, invalid {invalid}.");
+                    throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.InvalidPriceCandidates, expectedCount: expected, actualCount: actual);
                 await ExecuteAsync("""
                 DELETE FROM portfolio_prices WHERE portfolio_price_list_id IN
                     (SELECT id FROM portfolio_price_lists WHERE percent_reference IS NOT NULL)
@@ -212,7 +207,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 WHERE old.run_id=(SELECT run_id FROM syscom_sync_runs
                     WHERE status='Succeeded' AND company_id=@company ORDER BY finished_at DESC LIMIT 1)
                   AND NOT EXISTS (SELECT 1 FROM syscom_sync_staging current_run
-                    WHERE current_run.run_id=@run AND current_run.code=old.code)
+                    WHERE current_run.run_id=@run AND current_run.raw_model=old.raw_model)
                 ON CONFLICT DO NOTHING
                 """, ct, ("run", runId), ("company", companyId));
             await ExecuteAsync("""
@@ -278,11 +273,8 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         return cmd;
     }
 
-    private static string NormalizeCode(string? raw)
-    {
-        var normalized = raw?.Trim().ToUpperInvariant() ?? "";
-        return normalized.Length <= 35 ? normalized : normalized[..35];
-    }
+    internal static string NormalizeCode(string? raw) => raw?.Trim().ToUpperInvariant() ?? "";
+
     private static string? Truncate(string? value, int length) =>
         value is { Length: var size } && size > length ? value[..length] : value;
     private static (decimal?, string?) ExtractPriceAndCurrency(SyscomProduct p)
@@ -306,7 +298,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         ALTER TABLE syscom_sync_runs ADD COLUMN IF NOT EXISTS metrics jsonb;
         CREATE TABLE IF NOT EXISTS syscom_sync_staging (
             run_id uuid NOT NULL REFERENCES syscom_sync_runs(run_id) ON DELETE CASCADE,
-            code varchar(35) NOT NULL, raw_model text NOT NULL, winner_key text NOT NULL,
+            code text NOT NULL, raw_model text NOT NULL, winner_key text NOT NULL,
             category_id bigint NOT NULL,
             product_id bigint NOT NULL, name varchar(350) NOT NULL, details text,
             sat_unit varchar(14) NOT NULL, sat_unit_desc varchar(350), sat_key varchar(14) NOT NULL,
@@ -315,8 +307,57 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         CREATE INDEX IF NOT EXISTS ix_syscom_sync_staging_sat ON syscom_sync_staging(run_id, sat_key, sat_unit);
         CREATE TABLE IF NOT EXISTS syscom_sync_missing (
             run_id uuid NOT NULL REFERENCES syscom_sync_runs(run_id) ON DELETE CASCADE,
-            code varchar(35) NOT NULL, PRIMARY KEY(run_id, code));
+            code text NOT NULL, PRIMARY KEY(run_id, code));
+        DO $$ BEGIN
+            IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='syscom_sync_staging'::regclass
+                       AND attname='code' AND atttypmod<>-1) THEN
+                ALTER TABLE syscom_sync_staging ALTER COLUMN code TYPE text;
+            END IF;
+            IF EXISTS (SELECT 1 FROM pg_attribute WHERE attrelid='syscom_sync_missing'::regclass
+                       AND attname='code' AND atttypmod<>-1) THEN
+                ALTER TABLE syscom_sync_missing ALTER COLUMN code TYPE text;
+            END IF;
+        END $$;
         """;
+
+    private async Task ReconcileLegacyCodesAsync(Guid runId, long companyId, CancellationToken ct)
+    {
+        // Lock existing identities before selecting a legacy owner; never delete/reinsert
+        // products because prices, inventory and commercial documents reference their IDs.
+        await ExecuteAsync("SELECT id FROM portfolio_products WHERE company_id=@company FOR UPDATE", ct, ("company", companyId));
+        await ExecuteAsync("""
+            CREATE TEMP TABLE syscom_code_candidates ON COMMIT DROP AS
+            SELECT candidates.*, count(*) OVER (PARTITION BY id)=1 OR title_matches AS identity_matches
+            FROM (
+            SELECT p.id, s.code, p.title=s.name AS title_matches
+            FROM portfolio_products p JOIN syscom_sync_staging s ON s.run_id=@run
+              AND length(s.code)>35 AND p.code<>s.code
+              AND (p.code=left(s.code,35) OR p.code='SYSCOM-' || s.product_id::text)
+            WHERE p.company_id=@company
+              AND NOT EXISTS (SELECT 1 FROM syscom_sync_staging exact
+                              WHERE exact.run_id=@run AND exact.code=p.code)
+            ) candidates;
+            """, ct, ("run", runId), ("company", companyId));
+        var ambiguous = Convert.ToInt64(await ScalarAsync("""
+            SELECT count(*) FROM (
+              SELECT id FROM syscom_code_candidates GROUP BY id
+              HAVING count(*) FILTER (WHERE identity_matches)<>1
+              UNION
+              SELECT c.id FROM syscom_code_candidates c
+              WHERE c.identity_matches AND (
+                EXISTS (SELECT 1 FROM syscom_code_candidates other
+                        WHERE other.identity_matches AND other.code=c.code AND other.id<>c.id)
+                OR EXISTS (SELECT 1 FROM portfolio_products destination
+                           WHERE destination.company_id=@company AND destination.code=c.code AND destination.id<>c.id))
+            ) unresolved
+            """, ct, ("company", companyId)));
+        if (ambiguous != 0)
+            throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.LegacyCodeIdentityAmbiguous, actualCount: ambiguous);
+        await ExecuteAsync("""
+            UPDATE portfolio_products p SET code=c.code, updated_at=now()
+            FROM syscom_code_candidates c WHERE p.id=c.id AND c.identity_matches
+            """, ct);
+    }
 
     private const string PromotionSql = """
         INSERT INTO catalogs_sat_products (code, title, created_at, updated_at)

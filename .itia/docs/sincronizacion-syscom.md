@@ -70,8 +70,8 @@ No se reintenta automáticamente una promoción SQL fallida.
 
 ## Reglas de datos y alcance global
 
-- Modelo: trim, mayúsculas, máximo 35 caracteres; colisiones entre modelos completos
-  diferentes que producen el mismo código abortan la ejecución.
+- Modelo: trim y mayúsculas, conservando el contenido completo; code usa text.
+  Los modelos diferentes con un prefijo común se conservan separados.
 - Duplicados: selección determinista por categoría, producto y campos de desempate.
 - Precio: prioridad descuento, lista, precio 1 y especial; cuatro decimales, USD.
 - Clave SAT inválida: `46171604`; registros incompletos se omiten y cuentan.
@@ -153,3 +153,75 @@ etapas para obtener el total.** El total persistido se toma antes de guardar mé
 y liberar el bloqueo; el resumen puede ser ligeramente posterior.
 
 [Plan de rendimiento](../changelog/261030-002-FEATURE-rendimiento-sincronizacion-syscom/plans/main/PLAN.md).
+
+## Diagnóstico seguro de fallas
+
+El log de error incluye run_id, tipo de excepción y Reason. Las validaciones propias
+registran causas específicas (ProductTotalChanged, PageCountChanged, UnexpectedPage,
+EmptyPage, ModelCodeCollision, entre otras) y contexto numérico de categoría, página
+y cantidades esperadas/recibidas. No registra modelos, títulos ni contenido del proveedor.
+Las excepciones externas se clasifican sin imprimir Message, InnerException, Data,
+respuestas HTTP o cadenas de conexión; HTTP incluye únicamente el código de estado.
+Una excepción inesperada conserva diagnóstico genérico y requiere inspección en debugger.
+
+Validación local del cambio de logging: 81 pruebas PASS y 9 omitidas (proveedor real
+y simulador no iniciado), con PostgreSQL desechable. Incluye salida del logger,
+conteo cambiante y mensajes señuelo con secretos. La causa de la ejecución real
+reportada no se puede recuperar del log anterior; requiere una nueva ejecución.
+
+Las colisiones incluyen existing_product_id, incoming_product_id y existing_category.
+requested_page identifica la página que el consumidor estaba guardando al fallar,
+incluso si el productor ya había descargado páginas posteriores. No se omite la
+colisión ni se promueven datos incompletos.
+
+## Modelos completos y conservación de IDs
+
+Requiere primero la migración `20261030230000_expand_portfolio_product_codes` de
+IDOneApi: portfolio_products.code pasa a text. Rails elimina el límite35 y la
+importación de productos deja de recortar códigos. La migración conserva índices,
+IDs y referencias; recrea vistas dependientes con definiciones, propietarios, ACLs,
+opciones y comentarios. Se detiene si encuentra materializaciones, triggers, reglas
+o metadatos de columna que necesitan una migración específica. El rollback no
+recorta datos: está declarado irreversible.
+
+Extensions verifica el tipo de la columna antes de descargar. Si aún tiene límite,
+emite CodeSchemaMigrationRequired. Su staging y tabla de ausentes se amplían a text
+sin borrar historial. Ya no existe la excepción específica para246645.
+
+Durante la promoción transaccional se buscan códigos truncados a35 caracteres y
+alias históricos SYSCOM-ID. Se mantiene el ID existente actualizando únicamente su
+código cuando el prefijo/alias tiene un único candidato en el catálogo descargado,
+aunque haya cambiado el título. Si hay varios candidatos, exige una coincidencia
+única de título. Los títulos comparados son los mismos que almacena la
+sincronización (máximo350). Un código que ya coincide con un modelo completo
+descargado conserva su identidad. No se fusionan IDs ni se borran productos.
+
+Si no hay coincidencia única, o el destino pertenece a otro ID, se revierte con
+LegacyCodeIdentityAmbiguous. Esto requiere reconciliación explícita de datos, no
+seleccionar arbitrariamente el primer producto. El alias y código truncado de un
+mismo producto tampoco se fusionan silenciosamente si ambos existen.
+
+La reconciliación, actualización de catálogos, recálculo GLOBAL de precios y estado
+Succeeded comparten transacción. Se conservan listas fijas y referencias por ID.
+La detección de ausentes compara modelos completos históricos para no reportar
+como faltante un producto cuyo código se amplió.
+
+Validación local de esta solución:93 pruebas .NET PASS,9 omitidas (SYSCOM real y
+simulador),4 pruebas Ruby PASS con PostgreSQL17 desechable. Se probaron colisiones
+por prefijo en la misma página y entre páginas, ambos órdenes, reejecución, alias
+histórico, identidad ambigua, destino ocupado, referencias, listas fijas, rollback
+de renombres tras falla de precios y migración del staging. En Ruby: vistas
+dependientes, permisos/comentarios/opciones, unicidad, IDs/FKs, modelos de306
+caracteres, fallo seguro de dependencias no soportadas y rollback irreversible.
+
+No se ejecutó la migración ni la sincronización contra la base real. Orden de
+activación: detener el worker, aplicar migración de API, desplegar ambos cambios,
+ejecutar sincronización. No ejecutar el worker antiguo después de la ampliación:
+su recorte podría volver a insertar códigos antiguos. Una ampliación por sí sola
+no identifica a qué producto pertenece cada código histórico ambiguo.
+
+Ajuste por run fc69ea78-5039-4002-9c0d-32da049efb82: los registros199521/199522
+tenían un único candidato por prefijo (246322/246329), con descripciones cambiadas.
+Se reprodujo el rechazo con un test fallido y se corrigió la selección del candidato
+único. Se conservan guardas para varios candidatos sin título único, dos IDs hacia
+el mismo código y destino ocupado.
