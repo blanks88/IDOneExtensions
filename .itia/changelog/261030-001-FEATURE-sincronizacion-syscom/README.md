@@ -20,5 +20,5 @@
 
 - Criterios: los definidos en el plan; validación conjunta en PostgreSQL aislado.
 - Tareas: asignadas en main al equipo sol6/high.
-- Estado: implementación local terminada; revisión independiente pendiente.
+- Estado: implementación local terminada; revisión independiente PASS sobre 6a82a98; activación remota no ejecutada.
 - Decisión: recálculo global de precios confirmado por el usuario; no restringirlo a SYSCOM.

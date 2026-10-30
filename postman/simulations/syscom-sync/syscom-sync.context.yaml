@@ -13,14 +13,14 @@ assumptions:
     status: supported
     claim: The fixture returns the pagination and product fields consumed by this repository's models.
     reason: Fixture fields derive from existing Syscom.Models responses and the repository collection; fixtures do not establish production catalog completeness.
-    verification: Three simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery and bounded failure.
+    verification: Four simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery bounded failure and incomplete advertised totals.
     source: Syscom/Syscom/Models/Responses.cs; postman/mocks/syscom/default.js
     updated_at: '2026-10-30'
   - id: transient-recovery
     status: supported
     claim: The caller recovers from a rate limit, expired bearer and transient product outage without partial promotion.
     reason: Controlled failures exercise caller behavior; they do not assert provider rate-limit policy.
-    verification: Three simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery and bounded failure.
+    verification: Four simulation tests passed against real HttpClient and disposable PostgreSQL 17 on 2026-10-30; request log confirmed 429, 401 token renewal, 503 recovery bounded failure and incomplete advertised totals.
     source: Syscom/SyscomTestProject/SyscomSimulationTests.cs
     updated_at: '2026-10-30'
 fingerprints:

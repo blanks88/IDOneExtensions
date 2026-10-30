@@ -7,18 +7,18 @@
 - Origen: solicitud del usuario de analizar y proponer mejoras a la sincronización.
 - Objetivo: mejorar aislamiento, consumo de memoria y recuperación, conservando el recálculo global.
 - Dependencias: reglas comerciales de bajas y entornos de validación pendientes.
-- Estado: implementación local terminada, autorizada el 2026-10-30; QA pendiente.
+- Estado: implementación local terminada, autorizada el 2026-10-30; QA de código PASS; activación remota pendiente.
 - Documentación actual: [sincronización SYSCOM](../../../../docs/sincronizacion-syscom.md).
 
 ## Tareas de implementación
 
 | ID | Alcance y aceptación | Responsable | Carácter | Dependencias | Progreso | Entrega | QA independiente |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| secretos-pruebas | Externalizar credenciales y aislar pruebas; criterios de sección 5 | host | Requerida | Configuración de ejecutores | [Implementado](development/host/secretos-pruebas/PROGRESS.md) | [Entrega](development/host/secretos-pruebas/DELIVERY.md) | Pendiente |
-| aislamiento | run_id y exclusión mutua; criterios de sección 1 | persistence | Requerida | secretos-pruebas | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
-| carga-paginada | Persistir por página; criterios de sección 2 | persistence | Requerida | aislamiento | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
-| recuperacion-http | Recuperación y resultados operativos; criterios de sección 3 | http | Requerida | secretos-pruebas | [Implementado](development/http/recuperacion-http/PROGRESS.md) | [Entrega](development/http/recuperacion-http/DELIVERY.md) | Pendiente |
-| promocion-precios | Promoción atómica con alcance global; criterios de sección 4 | persistence | Requerida | carga-paginada | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | Pendiente |
+| secretos-pruebas | Externalizar credenciales y aislar pruebas; criterios de sección 5 | host | Requerida | Configuración de ejecutores | [Implementado](development/host/secretos-pruebas/PROGRESS.md) | [Entrega](development/host/secretos-pruebas/DELIVERY.md) | [PASS](development/lead/integracion/QA.md) |
+| aislamiento | run_id y exclusión mutua; criterios de sección 1 | persistence | Requerida | secretos-pruebas | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | [PASS](development/lead/integracion/QA.md) |
+| carga-paginada | Persistir por página; criterios de sección 2 | persistence | Requerida | aislamiento | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | [PASS](development/lead/integracion/QA.md) |
+| recuperacion-http | Recuperación y resultados operativos; criterios de sección 3 | http | Requerida | secretos-pruebas | [Implementado](development/http/recuperacion-http/PROGRESS.md) | [Entrega](development/http/recuperacion-http/DELIVERY.md) | [PASS](development/lead/integracion/QA.md) |
+| promocion-precios | Promoción atómica con alcance global; criterios de sección 4 | persistence | Requerida | carga-paginada | [Implementado](development/persistence/sync-persistence/PROGRESS.md) | [Entrega](development/persistence/sync-persistence/DELIVERY.md) | [PASS](development/lead/integracion/QA.md) |
 
 
 Estado: implementación local terminada en la rama `feature/syscom-sync-hardening`, aislada de cambios pendientes.
@@ -124,7 +124,7 @@ No se ejecutó la sincronización ni se realizaron escrituras en bases remotas.
 ## Integración y cierre
 
 - Criterios: carga completa, recuperación acotada y promoción atómica; recálculo global preservado.
-- Evaluación: Release y 48 pruebas integradas aprobadas; revisión independiente pendiente.
+- Evaluación: Release y 48 pruebas integradas aprobadas; revisión independiente PASS sobre 6a82a98.
 - Decisiones pendientes: política de productos ausentes, responsables y entorno de prueba.
 - Alcance confirmado: todas las listas porcentuales y todos los productos elegibles.
 
@@ -145,3 +145,5 @@ independientemente desde `638e297`; el checkout original permanece intacto.
 No se autoriza despliegue, sincronización remota, publicación ni rotación de secretos.
 
 Verificación integrada: [DELIVERY.md](development/lead/integracion/DELIVERY.md).
+
+Revisión independiente: [QA.md](development/lead/integracion/QA.md). Implementación local terminada; provisión y rotación remotas no realizadas.

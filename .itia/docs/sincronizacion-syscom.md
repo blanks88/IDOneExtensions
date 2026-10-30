@@ -58,6 +58,8 @@ esa referencia; no se eliminan ni inactivan automáticamente.
 Cada página se guarda en su propia transacción, en lotes de hasta 500 registros.
 Se verifica el avance de páginas, se rechazan páginas vacías de una descarga no vacía
 y se compara la cantidad recibida con el total positivo anunciado por el proveedor.
+Si cantidad no es positiva o no está informada, no se puede verificar aritméticamente
+el total; se aplican las guardas de avance y páginas vacías.
 Solo una descarga completa puede
 promoverse. Catálogos, productos, precios, ausentes y éxito se confirman juntos.
 La confirmación es asíncrona y respeta la cancelación.
