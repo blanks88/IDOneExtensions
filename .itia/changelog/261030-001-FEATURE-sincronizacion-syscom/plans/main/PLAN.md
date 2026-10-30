@@ -1,4 +1,25 @@
-# Plan de mejora de la sincronización
+# main: Mejorar la sincronización SYSCOM
+
+## Identificación y alcance
+
+- Cambio: [261030-001-FEATURE-sincronizacion-syscom](../../README.md).
+- Plan: `main`.
+- Origen: solicitud del usuario de analizar y proponer mejoras a la sincronización.
+- Objetivo: mejorar aislamiento, consumo de memoria y recuperación, conservando el recálculo global.
+- Dependencias: reglas comerciales de bajas y entornos de validación pendientes.
+- Estado: propuesta; implementación y QA no iniciadas.
+- Documentación actual: [sincronización SYSCOM](../../../../docs/sincronizacion-syscom.md).
+
+## Tareas propuestas
+
+| ID | Alcance y aceptación | Responsable | Carácter | Dependencias | Progreso | Entrega | QA independiente |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| secretos-pruebas | Externalizar credenciales y aislar pruebas; criterios de sección 5 | Sin asignar | Requerida | Configuración de ejecutores | No iniciado | Pendiente | Pendiente |
+| aislamiento | run_id y exclusión mutua; criterios de sección 1 | Sin asignar | Requerida | secretos-pruebas | No iniciado | Pendiente | Pendiente |
+| carga-paginada | Persistir por página; criterios de sección 2 | Sin asignar | Requerida | aislamiento | No iniciado | Pendiente | Pendiente |
+| recuperacion-http | Recuperación y resultados operativos; criterios de sección 3 | Sin asignar | Requerida | secretos-pruebas | No iniciado | Pendiente | Pendiente |
+| promocion-precios | Promoción atómica con alcance global; criterios de sección 4 | Sin asignar | Requerida | carga-paginada | No iniciado | Pendiente | Pendiente |
+
 
 Estado: propuesta, sin cambios al comportamiento de ejecución.
 
@@ -99,3 +120,10 @@ configuración del scheduler ni de servicios remotos y no se han rotado credenci
 
 La documentación del flujo actual se actualizó mediante inspección del código.
 No se ejecutó la sincronización ni se realizaron escrituras en bases remotas.
+
+## Integración y cierre
+
+- Criterios: carga completa, recuperación acotada y promoción atómica; recálculo global preservado.
+- Evaluación: pendiente; no hay implementación ni revisión independiente de estas propuestas.
+- Decisiones pendientes: política de productos ausentes, responsables y entorno de prueba.
+- Alcance confirmado: todas las listas porcentuales y todos los productos elegibles.
