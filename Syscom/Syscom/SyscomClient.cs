@@ -79,6 +79,8 @@ public class SyscomClient : ISyscomClient
     public Task<SyscomProductsSearchResponse> GetProductsAsync(SyscomProductsRequest parameters, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(parameters);
+        if (parameters.Limit is < 10 or > 1000)
+            throw new ArgumentOutOfRangeException(nameof(parameters), "Product limit must be between 10 and 1000.");
         var url = Combine(_options.ApiBasePath, "/productos");
         var qb = new List<string>();
         if (parameters.Categoria.HasValue) qb.Add($"categoria={parameters.Categoria.Value}");
@@ -89,6 +91,7 @@ public class SyscomClient : ISyscomClient
         if (parameters.Stock.HasValue) qb.Add($"stock={(parameters.Stock.Value ? 1 : 0)}");
         if (parameters.Agrupar.HasValue) qb.Add($"agrupar={(parameters.Agrupar.Value ? 1 : 0)}");
         if (parameters.Pagina.HasValue) qb.Add($"pagina={parameters.Pagina.Value}");
+        if (parameters.Limit.HasValue) qb.Add($"limit={parameters.Limit.Value}");
         return GetAsync(AddQuery(url, qb), ReadAs<SyscomProductsSearchResponse>, cancellationToken);
     }
 

@@ -15,7 +15,8 @@ public record SyscomProductsRequest(
     string? Orden = null,
     bool? Stock = null,
     bool? Agrupar = null,
-    int? Pagina = null
+    int? Pagina = null,
+    int? Limit = null
 );
 
 public record SyscomProductInfoRequest(string Id);

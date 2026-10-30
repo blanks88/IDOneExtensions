@@ -13,6 +13,7 @@ public class SyscomWorkerLoggingTests
     [PostgresTheory]
     [InlineData("success")]
     [InlineData("failure")]
+    [InlineData("validation")]
     [InlineData("cancellation")]
     public async Task RunAsync_LogsActualOutcomeWithoutExceptionDetails(string outcome)
     {
@@ -36,6 +37,10 @@ public class SyscomWorkerLoggingTests
         else if (outcome == "failure")
             client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
                 .ThrowsAsync(new InvalidOperationException("sensitive provider payload"));
+        else if (outcome == "validation")
+            client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
+                .ThrowsAsync(SyscomFailureDiagnostics.Validation(SyscomFailureReason.ProductTotalChanged,
+                    category: 26, requestedPage: 10, expectedCount: 7500, actualCount: 7499));
         else
             client.Setup(x => x.GetCategoriesAsync(It.IsAny<CancellationToken>()))
                 .Returns((CancellationToken token) =>
@@ -46,7 +51,7 @@ public class SyscomWorkerLoggingTests
         var worker = new SyscomWorker(factory.Object, client.Object, uow);
         if (outcome == "success")
             await worker.RunAsync(cts.Token);
-        else if (outcome == "failure")
+        else if (outcome is "failure" or "validation")
             await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(cts.Token));
         else
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.RunAsync(cts.Token));
@@ -57,15 +62,24 @@ public class SyscomWorkerLoggingTests
         Assert.Equal(outcome switch
         {
             "success" => LogLevel.Information,
-            "failure" => LogLevel.Error,
+            "failure" or "validation" => LogLevel.Error,
             _ => LogLevel.Warning
         }, final.Level);
         Assert.Contains(outcome switch
         {
             "success" => "completed successfully",
-            "failure" => "failed",
+            "failure" or "validation" => "failed",
             _ => "canceled"
         }, final.Message);
         Assert.DoesNotContain("sensitive provider payload", final.Message);
+        if (outcome == "validation")
+        {
+            Assert.Contains("Reason: ProductTotalChanged", final.Message);
+            Assert.Contains("category=26", final.Message);
+            Assert.Contains("requested_page=10", final.Message);
+            Assert.Contains("expected_count=7500", final.Message);
+            Assert.Contains("actual_count=7499", final.Message);
+            Assert.Contains("Run:", final.Message);
+        }
     }
 }

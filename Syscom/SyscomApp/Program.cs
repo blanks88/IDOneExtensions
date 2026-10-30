@@ -44,13 +44,7 @@ try
         .UseNpgsql(configuration.ConnectionString)
         .Options;
     await using var unitOfWork = new UnitOfWork(new IDOneDbContext(dbOptions));
-    var worker = new SyscomWorker(loggerFactory, client, unitOfWork,
-        new SyscomSyncOptions
-        {
-            MaximumDuration = configuration.MaximumDuration,
-            RetentionDays = configuration.RetentionDays,
-            CompanyId = configuration.CompanyId
-        });
+    var worker = new SyscomWorker(loggerFactory, client, unitOfWork, configuration.ToSyncOptions());
 
     using var cts = new CancellationTokenSource();
     var cancellationLock = new object();
