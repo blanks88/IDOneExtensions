@@ -47,5 +47,5 @@ con el mismo catálogo simulado, sin prometer mejoras de producción. Conservar 
 ## Estado y entrega
 
 Implementación y validación local completas: 81 pruebas pasan y 4 reales omitidas.
-Revisión independiente pendiente. Lead único responsable del índice Git y commits. Cada agente registra
+Revisión independiente PASS sobre `600748b`; ver QA.md en la entrega de integración. Lead único responsable del índice Git y commits. Cada agente registra
 PROGRESS.md y DELIVERY.md bajo development/<agente>/<tarea>/. Revisión independiente posterior.

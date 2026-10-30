@@ -5,8 +5,8 @@
 - Cambio: 261030-002-FEATURE-rendimiento-sincronizacion-syscom; plan main; tarea integracion.
 - Responsable: /root; equipo gpt-6-sol/high: paging, pipeline y metrics.
 - Base da1f198; rama feature/syscom-sync-performance en worktree aislado.
-- Estado: implementación y verificación PASS; revisión independiente pendiente.
-- Revisión entregada: primer commit de implementación de esta rama (posterior a da1f198).
+- Estado: implementación y verificación PASS; revisión independiente PASS sobre `600748b`.
+- Revisión entregada: `600748b`.
 - Alcance: opciones de página/buffer, pipeline y métricas; recálculo global conservado.
 - Sin cambios pendientes ajenos importados, paquetes nuevos, publicación o proveedor real.
 
@@ -64,7 +64,8 @@ la evidencia necesaria, sin adjuntos externos.
 No se ejecutó SYSCOM real ni base productiva. No se afirma reducción porcentual del tiempo
 total. Las métricas de descarga/staging se solapan y promoción contiene subetapas.
 El snapshot es best effort; una conexión perdida puede impedir persistir métricas.
-La revisión independiente corresponde al siguiente commit limpio; el reviewer no implementó.
+La revisión independiente de `600748b` terminó PASS; el reviewer no implementó.
+Detalle en [QA.md](QA.md).
 
 Control de artefactos: el handoff automático con baseline no pudo validar porque la
 asignación inicial solo enumeraba README/PLAN y luego se amplió a los archivos del

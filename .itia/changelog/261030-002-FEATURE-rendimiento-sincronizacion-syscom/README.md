@@ -17,5 +17,5 @@
 ## Integración y cierre
 
 Implementación y pruebas locales completas: 81 PASS y 4 pruebas reales omitidas.
-Revisión independiente pendiente. No se incluyen cambios
+Revisión independiente PASS sobre `600748b`; ver QA.md en la entrega de integración. No se incluyen cambios
 pendientes del checkout original, publicaciones ni ejecución remota.
