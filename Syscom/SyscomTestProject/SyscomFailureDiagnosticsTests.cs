@@ -6,6 +6,14 @@ namespace SyscomTestProject;
 public class SyscomFailureDiagnosticsTests
 {
     [Fact]
+    public void InvalidCandidates_ReportInvalidCountEvenWhenRowCountsMatch()
+    {
+        var error = SyscomFailureDiagnostics.Validation(SyscomFailureReason.InvalidPriceCandidates,
+            expectedCount: 100, actualCount: 100, invalidCount: 3);
+        Assert.Contains("invalid_count=3",SyscomFailureDiagnostics.Describe(error));
+    }
+
+    [Fact]
     public void PostgresFailure_ReportsSqlStateWithoutServerPayload()
     {
         const string secret = "Password=do-not-log";

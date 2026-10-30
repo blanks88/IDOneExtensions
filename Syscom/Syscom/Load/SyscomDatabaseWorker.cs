@@ -76,7 +76,7 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             var satKey = Regex.IsMatch(product.SatKey ?? "", "^[0-9]{8}$") ? product.SatKey! : "46171604";
             var (price, currency) = ExtractPriceAndCurrency(product);
             if (code.Length == 0 || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(satUnit) ||
-                string.IsNullOrWhiteSpace(currency) || price is null)
+                string.IsNullOrWhiteSpace(currency) || price is null or <= 0)
             {
                 skipped++;
                 continue;
@@ -185,11 +185,11 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
                 var invalid = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates WHERE price IS NULL OR price < 0", ct));
                 var expected = Convert.ToInt64(await ScalarAsync("""
                 SELECT count(*) FROM portfolio_price_lists l CROSS JOIN portfolio_products p
-                WHERE l.percent_reference IS NOT NULL
+                WHERE l.percent_reference IS NOT NULL AND p.price > 0
                 """, ct));
                 var actual = Convert.ToInt64(await ScalarAsync("SELECT count(*) FROM syscom_sync_price_candidates", ct));
                 if (invalid != 0 || actual != expected)
-                    throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.InvalidPriceCandidates, expectedCount: expected, actualCount: actual);
+                    throw SyscomFailureDiagnostics.Validation(SyscomFailureReason.InvalidPriceCandidates, expectedCount: expected, actualCount: actual, invalidCount: invalid);
                 await ExecuteAsync("""
                 DELETE FROM portfolio_prices WHERE portfolio_price_list_id IN
                     (SELECT id FROM portfolio_price_lists WHERE percent_reference IS NOT NULL)
@@ -411,10 +411,14 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         SELECT l.id AS portfolio_price_list_id, p.id AS portfolio_product_id,
             ROUND((CASE
                 WHEN p.currency_id=l.currency_id THEN p.price
-                WHEN pc.principal AND NOT lc.principal AND lr.exchange_rate > 0
+                WHEN pc.principal AND lc.id IS NOT NULL AND NOT COALESCE(lc.principal,false) AND lr.exchange_rate > 0
                     THEN p.price / lr.exchange_rate
-                WHEN lc.principal AND NOT pc.principal AND pr.exchange_rate > 0
+                WHEN lc.principal AND pc.id IS NOT NULL AND NOT COALESCE(pc.principal,false) AND pr.exchange_rate > 0
                     THEN p.price * pr.exchange_rate
+                WHEN pc.id IS NOT NULL AND lc.id IS NOT NULL
+                    AND NOT COALESCE(pc.principal,false) AND NOT COALESCE(lc.principal,false)
+                    AND pr.exchange_rate > 0 AND lr.exchange_rate > 0
+                    THEN p.price * pr.exchange_rate / lr.exchange_rate
                 ELSE NULL END)
                 / CASE WHEN COALESCE(p.pr_quantity,0)=0 THEN 1 ELSE p.pr_quantity END
                 * (1 + l.percent_reference / 100), 4) AS price
@@ -425,6 +429,6 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             WHERE currency_id=p.currency_id AND principal=true ORDER BY id DESC LIMIT 1) pr ON true
         LEFT JOIN LATERAL (SELECT exchange_rate FROM exchange_rates
             WHERE currency_id=l.currency_id AND principal=true ORDER BY id DESC LIMIT 1) lr ON true
-        WHERE l.percent_reference IS NOT NULL;
+        WHERE l.percent_reference IS NOT NULL AND p.price > 0;
         """;
 }

@@ -45,3 +45,17 @@ Validación posterior:96 PASS,9 SKIP; Debug sin advertencias ni errores. La regr
 verifica dos ejecuciones, referencias, cantidades y precios globales/lista fija.
 La consulta de solo lectura del run local devuelve32729 filas para32729 códigos.
 No se ejecutó promoción real ni nueva revisión independiente.
+
+## Corrección posterior — elegibilidad de precios y conversión cruzada
+
+Con aprobación del usuario, staging admite únicamente precios positivos y el recálculo
+global usa todos los productos elegibles de todas las empresas. Los productos históricos
+con precio nulo, cero o negativo permanecen con sus IDs y listas fijas; no generan
+precios porcentuales. EUR/USD usa las tasas principales configuradas de ambas monedas.
+Los flags principal nulos se interpretan como secundarios solo si existe la moneda.
+El diagnóstico separa invalid_count de los conteos esperado y generado.
+
+Validación: 100 PASS, 9 SKIP; consulta local de solo lectura: 521550 candidatos,
+0 inválidos. Las regresiones incluyen tasas modificadas entre ejecuciones, conversión
+en ambos sentidos y preservación de productos históricos/listas fijas.
+Sin ejecución real completa ni nueva revisión independiente.

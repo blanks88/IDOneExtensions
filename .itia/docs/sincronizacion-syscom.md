@@ -74,15 +74,16 @@ No se reintenta automáticamente una promoción SQL fallida.
   Los modelos diferentes con un prefijo común se conservan separados.
 - Duplicados: selección determinista por categoría, producto y campos de desempate.
 - Precio: prioridad descuento, lista, precio 1 y especial; cuatro decimales, USD.
+  Solo se ingresan productos con precio seleccionado mayor que cero; los demás se omiten y cuentan.
 - Clave SAT inválida: `46171604`; registros incompletos se omiten y cuentan.
 - Productos: coincidencia por empresa y código; la empresa por defecto sigue siendo 1.
-- Precios: **todas las listas con percent_reference y todos los productos**, incluso
+- Precios: **todas las listas con percent_reference y todos los productos con precio fuente positivo**, incluso
   productos ajenos a SYSCOM o de otras empresas. Las listas sin porcentaje se conservan.
 - Candidatos inválidos, monedas/tipos de cambio faltantes, tipos no positivos o ambiguos
   y conversiones no soportadas impiden el reemplazo y revierten la promoción.
 - Se mantienen conversiones entre moneda principal y secundaria, o misma moneda.
-  Una conversión entre dos monedas secundarias distintas se rechaza; no se inventa
-  un tipo cruzado. La cantidad cero/nula conserva el divisor 1 de la regla anterior.
+  Entre monedas secundarias se usa precio × tasa principal de origen ÷ tasa principal
+  de destino, ambas configuradas y positivas. La cantidad cero/nula conserva el divisor 1.
 
 ## Configuración
 
@@ -241,3 +242,22 @@ local de solo lectura devuelve32729 filas y32729 códigos únicos para ese run.
 Suite:96 PASS,9 SKIP; sin ejecutar promoción real desde esta sesión.
 Los errores PostgreSQL muestran SQLSTATE validado y una clasificación estática;
 Message/Detail/Hint y credenciales siguen excluidos del log.
+
+## Monedas secundarias con principal nulo
+
+La base histórica guarda principal=NULL para USD/EUR. La conversión con moneda
+principal interpreta ese NULL como false, pero exige que exista la fila de moneda
+y que el tipo de cambio aplicable sea positivo. Se reprodujo InvalidPriceCandidates
+con flags nulos en un test fallido antes de corregir la consulta. El diagnóstico
+agrega invalid_count, separado del total esperado y generado.
+
+Reglas confirmadas por el usuario: excluir precios fuente nulos, cero y negativos;
+convertir entre monedas secundarias usando las tasas principales configuradas.
+El recálculo sigue siendo global entre empresas para los productos elegibles.
+Los productos históricos excluidos conservan sus IDs y sus precios de listas fijas;
+sus entradas en listas porcentuales se retiran durante el reemplazo transaccional.
+
+Validación: 100 PASS, 9 SKIP. Consulta de solo lectura sobre el catálogo local:
+521550 candidatos, 0 inválidos. Regresiones verifican omisiones, productos históricos,
+listas fijas y conversión EUR/USD en ambos sentidos tras cambiar la tasa configurada.
+No se ejecutó una sincronización completa contra SYSCOM ni una promoción en la base local.
