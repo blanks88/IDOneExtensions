@@ -225,3 +225,19 @@ tenían un único candidato por prefijo (246322/246329), con descripciones cambi
 Se reprodujo el rechazo con un test fallido y se corrigió la selección del candidato
 único. Se conservan guardas para varios candidatos sin título único, dos IDs hacia
 el mismo código y destino ocupado.
+
+## Unidades SAT históricas duplicadas
+
+El run6135ff3b-e01b-4250-8fde-796adf782486 falló con SQLSTATE21000 porque el
+JOIN de unidades generaba varias filas por producto. La base local contiene
+varias filas por sat_key/store_type (incluidas10 para H87/0); no se supone
+unicidad que el esquema real no impone.
+
+La promoción elige una sola unidad con JOIN LATERAL: conserva la referencia del
+producto existente si coincide SAT/tipo, o utiliza el menor ID válido. No elimina
+ni fusiona unidades históricas. El test reprodujo21000 antes del cambio y luego
+verificó dos ejecuciones, referencias estables y precios globales. La consulta
+local de solo lectura devuelve32729 filas y32729 códigos únicos para ese run.
+Suite:96 PASS,9 SKIP; sin ejecutar promoción real desde esta sesión.
+Los errores PostgreSQL muestran SQLSTATE validado y una clasificación estática;
+Message/Detail/Hint y credenciales siguen excluidos del log.

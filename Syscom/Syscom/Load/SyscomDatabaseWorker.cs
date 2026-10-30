@@ -391,7 +391,14 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
             s.price, s.trade_mark, sat.id
         FROM syscom_sync_staging s
         JOIN catalogs_sat_products sat ON sat.code=s.sat_key
-        JOIN catalogs_measurements cm ON cm.sat_key=s.sat_unit AND cm.store_type=0
+        LEFT JOIN portfolio_products existing ON existing.company_id=@company AND existing.code=s.code
+        JOIN LATERAL (
+            SELECT measurement.id FROM catalogs_measurements measurement
+            WHERE measurement.sat_key=s.sat_unit AND measurement.store_type=0
+            ORDER BY CASE WHEN measurement.id=existing.catalogs_measurement_id THEN 0 ELSE 1 END,
+                measurement.id
+            LIMIT 1
+        ) cm ON true
         WHERE s.run_id=@run
         ON CONFLICT (company_id, code) DO UPDATE SET
             title=EXCLUDED.title, trade_mark=EXCLUDED.trade_mark, price=EXCLUDED.price,

@@ -54,9 +54,28 @@ internal static class SyscomFailureDiagnostics
         {
             HttpRequestException http => $"HTTP request failed; status={(int?)http.StatusCode}",
             System.Text.Json.JsonException => "Invalid JSON response",
+            Npgsql.PostgresException pg => DescribePostgres(pg),
             System.Data.Common.DbException => "Database operation failed",
             OperationCanceledException => "Operation cancelled or timed out",
             _ => "Unexpected failure; inspect the exception in the debugger"
         };
     }
+    private static string DescribePostgres(Npgsql.PostgresException error)
+    {
+        var state = error.SqlState;
+        if (state.Length != 5 || state.Any(c => !(c is >= '0' and <= '9' or >= 'A' and <= 'Z')))
+            return "Database operation failed";
+        var reason = state switch
+        {
+            "21000" => "CardinalityViolation",
+            "23505" => "UniqueViolation",
+            "23503" => "ForeignKeyViolation",
+            "23502" => "NotNullViolation",
+            "22001" => "StringTooLong",
+            "42P10" => "MissingConflictConstraint",
+            _ => "DatabaseError"
+        };
+        return $"Database operation failed; sqlstate={state}; reason={reason}";
+    }
+
 }

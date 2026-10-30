@@ -6,6 +6,19 @@ namespace SyscomTestProject;
 public class SyscomFailureDiagnosticsTests
 {
     [Fact]
+    public void PostgresFailure_ReportsSqlStateWithoutServerPayload()
+    {
+        const string secret = "Password=do-not-log";
+        var error = new Npgsql.PostgresException(secret,"ERROR","ERROR","21000",detail:secret,hint:secret);
+        var reason = SyscomFailureDiagnostics.Describe(error);
+        Assert.Contains("sqlstate=21000",reason);
+        Assert.Contains("CardinalityViolation",reason);
+        Assert.DoesNotContain(secret,reason);
+        var malformed = new Npgsql.PostgresException(secret,"ERROR","ERROR",secret);
+        Assert.DoesNotContain(secret,SyscomFailureDiagnostics.Describe(malformed));
+    }
+
+    [Fact]
     public async Task StagingCollision_ReportsCurrentPageAndBothIds()
     {
         var collision = SyscomFailureDiagnostics.Validation(SyscomFailureReason.ModelCodeCollision,

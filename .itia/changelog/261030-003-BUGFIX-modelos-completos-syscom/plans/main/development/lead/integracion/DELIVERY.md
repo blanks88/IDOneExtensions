@@ -32,3 +32,16 @@ Pendientes ajenos: development.rb en API; .gitignore del árbol principal Extens
 configuración local de conexión fuera de Git. No forman parte del commit.
 
 [Operación y reglas](../../../../../../../docs/sincronizacion-syscom.md).
+
+## Corrección posterior — unidades SAT duplicadas
+
+La promoción falló con SQLSTATE21000 por varias unidades con la misma clave SAT
+y tipo. Se reprodujo con un test fallido en PostgreSQL desechable. JOIN LATERAL
+selecciona una sola unidad: conserva la referencia válida del producto existente
+o usa el menor ID válido, sin borrar ni fusionar unidades. Se añade diagnóstico
+SQLSTATE validado y clasificación estática sin publicar Message/Detail/Hint.
+
+Validación posterior:96 PASS,9 SKIP; Debug sin advertencias ni errores. La regresión
+verifica dos ejecuciones, referencias, cantidades y precios globales/lista fija.
+La consulta de solo lectura del run local devuelve32729 filas para32729 códigos.
+No se ejecutó promoción real ni nueva revisión independiente.
