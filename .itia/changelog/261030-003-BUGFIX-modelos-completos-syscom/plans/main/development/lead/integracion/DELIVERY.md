@@ -59,3 +59,25 @@ Validación: 100 PASS, 9 SKIP; consulta local de solo lectura: 521550 candidatos
 0 inválidos. Las regresiones incluyen tasas modificadas entre ejecuciones, conversión
 en ambos sentidos y preservación de productos históricos/listas fijas.
 Sin ejecución real completa ni nueva revisión independiente.
+
+## Aceptación local completa
+
+Implementación: `c844751` (precios elegibles y conversión configurada), sobre
+`276cd3f` (selección determinista de unidad SAT). El 30 de octubre se ejecutó
+el flujo completo contra SYSCOM, escribiendo únicamente en one_development local.
+Terminó con salida 0 y Succeeded/Complete en 105.9 s: 100 páginas, 46651 registros
+recibidos, 32728 modelos únicos y 583470 precios globales reemplazados.
+
+Se verificaron todos los modelos del staging y todos los precios calculados: cero
+faltantes, sobrantes, duplicados o valores distintos. La comparación exacta con
+el conjunto previo conserva los 65355 IDs; el hash de las filas completas de listas
+fijas permanece idéntico. El recálculo incluyó otras empresas y productos sin empresa.
+La preservación del conjunto de IDs no demuestra por sí sola la identidad semántica
+de cada modelo; se mantiene la regla de reconciliación previamente acordada.
+
+Equipo: sync_diagnosis y sync_verification, GPT-6 Sol/high, en lectura; el lead
+controló ejecución, consultas y commits. Sin nuevos bloqueos detectados en la revisión.
+Pruebas previas de esta revisión: 100 PASS, 9 SKIP (gates de simulación/proveedor);
+Debug sin errores. No hubo nuevos cambios de código después de esa validación.
+No se ejecutó en producción ni se realizó push. Los cambios ajenos de los árboles
+principales permanecen intactos. Este cierre documental no modifica código probado.

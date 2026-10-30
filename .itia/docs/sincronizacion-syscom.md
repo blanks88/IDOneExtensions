@@ -40,6 +40,23 @@ flowchart TD
     P --> R[Liberar bloqueo y salir con código de error]
 ```
 
+## Ciclo de verificación y corrección
+
+1. Confirmar el destino local y capturar los IDs existentes y las filas de listas fijas.
+2. Compilar y ejecutar una sincronización completa contra SYSCOM, sin procesos paralelos
+   que promuevan datos sobre la misma base.
+3. Si falla, correlacionar `run_id`, etapa, motivo seguro, SQLSTATE y contadores.
+   Si falta información, añadir diagnóstico estructurado sin credenciales ni payloads.
+4. Reproducir la causa, agregar una regresión y aplicar la corrección mínima.
+   Ejecutar las pruebas afectadas y crear un commit por fix con su documentación.
+5. Volver a ejecutar el flujo completo. No darlo por resuelto solo porque una etapa avance.
+6. Aceptar únicamente con salida 0, `Succeeded`/`Complete`, promoción completa,
+   precios globales correctos, IDs previos conservados y listas fijas sin cambios.
+
+El orquestador controla ejecución, escrituras y commits. Los agentes de diagnóstico
+revisan causas; un verificador independiente contrasta los resultados de la base.
+Este ciclo es de mantenimiento: no añade reintentos automáticos de promoción al worker.
+
 ## Persistencia y compatibilidad
 
 La primera ejecución crea tablas aditivas `syscom_sync_runs`, `syscom_sync_staging`
@@ -260,4 +277,29 @@ sus entradas en listas porcentuales se retiran durante el reemplazo transacciona
 Validación: 100 PASS, 9 SKIP. Consulta de solo lectura sobre el catálogo local:
 521550 candidatos, 0 inválidos. Regresiones verifican omisiones, productos históricos,
 listas fijas y conversión EUR/USD en ambos sentidos tras cambiar la tasa configurada.
-No se ejecutó una sincronización completa contra SYSCOM ni una promoción en la base local.
+La verificación inicial de solo lectura se completó después con una sincronización real
+contra SYSCOM y promoción en la base local; resultado descrito abajo.
+
+## Verificación completa — 30 de octubre de 2026
+
+La revisión `c844751` completó la descarga real de SYSCOM y la promoción sobre
+`one_development` local: salida 0 y estado persistido `Succeeded` / `Complete`.
+No se ejecutó contra la base productiva. El equipo utilizó dos agentes GPT-6 Sol
+con esfuerzo alto para diagnóstico y verificación, con ejecución y commits a cargo
+del orquestador.
+
+- 100 páginas; 46651 registros recibidos; 0 omitidos; 32728 modelos únicos promovidos.
+  El conteo recibido incluye repeticiones entre categorías: no equivale a modelos únicos.
+- 583470 precios porcentuales recalculados globalmente: 583362 de empresa 1,
+  72 de empresa 2 y 36 de productos sin empresa asignada.
+- Todos los modelos del staging coinciden con los productos promovidos en código,
+  título, moneda y precio. No hay candidatos inválidos ni pares lista/producto duplicados.
+- La comparación de todos los precios esperados contra los persistidos encontró
+  cero faltantes, sobrantes o valores distintos.
+- Se conservaron los 65355 IDs existentes; no se crearon IDs nuevos en esta ejecución.
+  Las filas completas de listas fijas mantuvieron el mismo contenido y sus IDs.
+- Tiempo total: 105.9 s; descarga: 98.8 s; staging: 2.56 s; promoción de catálogo:
+  1.05 s; recálculo global: 5.84 s. Descarga y staging se solapan.
+
+Esta comprobación confirma una ejecución completa en el entorno local. No constituye
+un despliegue productivo ni garantiza disponibilidad futura del proveedor.
