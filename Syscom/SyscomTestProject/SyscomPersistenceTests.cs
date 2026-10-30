@@ -182,6 +182,24 @@ public class SyscomPersistenceTests
     }
 
     [PostgresFact]
+    public async Task NormalizedCodeCollision_WithinPageRollsBackEntirePage()
+    {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        var db = new SyscomDatabaseWorker(NullLogger<SyscomDatabaseWorker>.Instance, uow);
+        var run = await db.BeginRunAsync(30, CancellationToken.None);
+        try
+        {
+            var prefix = new string('B', 35);
+            await Assert.ThrowsAsync<InvalidOperationException>(() => db.BulkInsertAsync(run, 1,
+                [Product(prefix + "X", 1), Product(prefix + "Y", 2)], CancellationToken.None));
+        }
+        finally { await db.ReleaseLockAsync(CancellationToken.None); }
+        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded<>0"));
+    }
+
+    [PostgresFact]
     public async Task AdvisoryLock_RejectsConcurrentRun()
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
@@ -340,6 +358,82 @@ public class SyscomPersistenceTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
         Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded=1"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code='PAGE-ONE'"));
+    }
+
+    [PostgresTheory]
+    [InlineData("empty-final", 1)]
+    [InlineData("short-total", 2)]
+    [InlineData("changed-total", 1)]
+    public async Task IncompletePagination_FailsWithoutPromoting(string scenario, int expectedPages)
+    {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        var client = new Mock<ISyscomClient>();
+        client.Setup(c => c.GetCategoriesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            [new SyscomCategory { Id = 1, Nombre = "A" }]);
+        client.Setup(c => c.GetProductsAsync(It.IsAny<SyscomProductsRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SyscomProductsRequest request, CancellationToken _) => request.Pagina == 1
+                ? new SyscomProductsSearchResponse
+                    { PaginaActual = 1, Paginas = 2, Total = scenario == "short-total" ? 3 : 2,
+                      Products = [Product("PAGE-A", 1)] }
+                : new SyscomProductsSearchResponse
+                    { PaginaActual = 2, Paginas = 2, Total = scenario == "changed-total" ? 3
+                        : scenario == "short-total" ? 3 : 2,
+                      Products = scenario == "empty-final" ? [] : [Product("PAGE-B", 2)] });
+        var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
+        Assert.Equal(1, await fixture.ScalarAsync($"SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded={expectedPages}"));
+        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code IN ('PAGE-A','PAGE-B')"));
+    }
+
+    [PostgresFact]
+    public async Task ExplicitEmptyCatalogue_CompletesWithoutStagedProducts()
+    {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        var client = new Mock<ISyscomClient>();
+        client.Setup(c => c.GetCategoriesAsync(It.IsAny<CancellationToken>())).ReturnsAsync(
+            [new SyscomCategory { Id = 1, Nombre = "Empty" }]);
+        client.Setup(c => c.GetProductsAsync(It.IsAny<SyscomProductsRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SyscomProductsSearchResponse
+                { PaginaActual = 1, Paginas = 0, Total = 0, Products = [] });
+        await new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow).RunAsync(CancellationToken.None);
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Succeeded' AND pages_loaded=1 AND products_staged=0"));
+    }
+
+    [PostgresFact]
+    public async Task LargePage_StagesAcrossBoundedBatchesAndCountsOnce()
+    {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        var db = new SyscomDatabaseWorker(NullLogger<SyscomDatabaseWorker>.Instance, uow);
+        var run = await db.BeginRunAsync(30, CancellationToken.None);
+        try
+        {
+            var products = Enumerable.Range(1, 801).Select(i => Product($"BATCH-{i:D4}", i)).ToList();
+            await db.BulkInsertAsync(run, 1, products, CancellationToken.None);
+            await db.CompleteDownloadAsync(run, CancellationToken.None);
+        }
+        finally { await db.ReleaseLockAsync(CancellationToken.None); }
+        Assert.Equal(801, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded=1 AND products_seen=801 AND products_staged=801"));
+    }
+
+    [PostgresFact]
+    public async Task CancelledBeforeCommit_RemainsRollbackableAndLeavesNoSentinel()
+    {
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        await uow.BeginTransactionAsync(CancellationToken.None);
+        await uow.ExecuteSqlRawAsync("""
+            INSERT INTO portfolio_products(title,code,company_id,currency_id,price)
+            VALUES('Sentinel','CANCELLED-COMMIT',1,1,1)
+            """, ct: CancellationToken.None);
+        using var cancelled = new CancellationTokenSource();
+        cancelled.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => uow.CommitTransactionAsync(cancelled.Token));
+        await uow.RollbackTransactionAsync(CancellationToken.None);
+        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code='CANCELLED-COMMIT'"));
     }
 
     [PostgresFact]

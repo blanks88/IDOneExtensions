@@ -124,7 +124,7 @@ No se ejecutó la sincronización ni se realizaron escrituras en bases remotas.
 ## Integración y cierre
 
 - Criterios: carga completa, recuperación acotada y promoción atómica; recálculo global preservado.
-- Evaluación: Release y 40 pruebas integradas aprobadas; revisión independiente pendiente.
+- Evaluación: Release y 48 pruebas integradas aprobadas; revisión independiente pendiente.
 - Decisiones pendientes: política de productos ausentes, responsables y entorno de prueba.
 - Alcance confirmado: todas las listas porcentuales y todos los productos elegibles.
 

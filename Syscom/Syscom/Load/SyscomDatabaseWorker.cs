@@ -2,6 +2,7 @@ using System.Data;
 using System.Data.Common;
 using System.Globalization;
 using System.Text.RegularExpressions;
+using System.Text.Json;
 using IDOneRepository;
 using Microsoft.EntityFrameworkCore.Storage;
 using Microsoft.Extensions.Logging;
@@ -43,68 +44,79 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
         return runId;
     }
 
+    private sealed record StagedProduct(string Code, string RawModel, string WinnerKey,
+        long CategoryId, long ProductId, string Name, string? Details, string SatUnit,
+        string? SatUnitDesc, string SatKey, string? SatKeyDesc, decimal Price,
+        string Currency, string? TradeMark);
+
+    private static readonly JsonSerializerOptions StageJsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+    };
+
     public async Task BulkInsertAsync(Guid runId, long categoryId, List<SyscomProduct> products, CancellationToken ct)
     {
-        var staged = 0;
+        // A page is the memory boundary. Resolve duplicates before sending bounded JSON batches.
+        var unique = new Dictionary<string, StagedProduct>(StringComparer.Ordinal);
         var skipped = 0;
+        foreach (var product in products)
+        {
+            ct.ThrowIfCancellationRequested();
+            var code = NormalizeCode(product.Modelo);
+            var rawModel = product.Modelo?.Trim().ToUpperInvariant() ?? string.Empty;
+            var name = Truncate(product.Titulo, 350);
+            var satUnit = Truncate(product.MeasurementUnit?.ClaveUnidadSat, 14);
+            var satKey = Regex.IsMatch(product.SatKey ?? "", "^[0-9]{8}$") ? product.SatKey! : "46171604";
+            var (price, currency) = ExtractPriceAndCurrency(product);
+            if (code.Length == 0 || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(satUnit) ||
+                string.IsNullOrWhiteSpace(currency) || price is null)
+            {
+                skipped++;
+                continue;
+            }
+            var unitDescription = Truncate(product.MeasurementUnit?.Nombre, 350);
+            var satDescription = Truncate(product.SatDescription, 350);
+            var mark = Truncate(product.Marca, 70);
+            var winnerKey = JsonSerializer.Serialize(new[]
+            {
+                categoryId.ToString("D20"), product.ProductoId.ToString("D20"), name, product.Titulo ?? "",
+                satUnit, unitDescription ?? "", satKey, satDescription ?? "",
+                price.Value.ToString("000000000000000.0000", CultureInfo.InvariantCulture), currency, mark ?? ""
+            });
+            var row = new StagedProduct(code, rawModel, winnerKey, categoryId, product.ProductoId,
+                name, product.Titulo, satUnit, unitDescription, satKey, satDescription, price.Value,
+                currency, mark);
+            if (unique.TryGetValue(code, out var prior))
+            {
+                if (prior.RawModel != rawModel)
+                    throw new InvalidOperationException($"SYSCOM model code collision after normalization: {code}.");
+                if (string.CompareOrdinal(winnerKey, prior.WinnerKey) < 0) unique[code] = row;
+            }
+            else unique.Add(code, row);
+        }
+
         var transaction = await uow.BeginTransactionAsync(ct);
         _transaction = transaction.GetDbTransaction();
         try
         {
-            foreach (var product in products)
+            var rows = unique.Values.OrderBy(row => row.Code, StringComparer.Ordinal).ToArray();
+            foreach (var batch in rows.Chunk(500))
             {
                 ct.ThrowIfCancellationRequested();
-                var code = NormalizeCode(product.Modelo);
-                var rawModel = product.Modelo?.Trim().ToUpperInvariant() ?? string.Empty;
-                var name = Truncate(product.Titulo, 350);
-                var satUnit = product.MeasurementUnit?.ClaveUnidadSat;
-                var satKey = Regex.IsMatch(product.SatKey ?? "", "^[0-9]{8}$") ? product.SatKey : "46171604";
-                var (price, currency) = ExtractPriceAndCurrency(product);
-                if (code.Length == 0 || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(satUnit) ||
-                    string.IsNullOrWhiteSpace(currency) || price is null)
-                {
-                    skipped++;
-                    continue;
-                }
-                var existing = await ScalarAsync("SELECT raw_model FROM syscom_sync_staging WHERE run_id=@run AND code=@code",
-                    ct, ("run", runId), ("code", code));
-                if (existing is string prior && prior != rawModel)
-                    throw new InvalidOperationException($"SYSCOM model code collision after normalization: {code}.");
-                var winnerKey = string.Join('|', categoryId.ToString("D20"), product.ProductoId.ToString("D20"),
-                    name, price.Value.ToString("000000000000000.0000", CultureInfo.InvariantCulture),
-                    satUnit, satKey, currency, product.Marca ?? "", product.Titulo ?? "");
-                await ExecuteAsync("""
-                    INSERT INTO syscom_sync_staging
-                    (run_id, code, raw_model, winner_key, category_id, product_id, name, details, sat_unit,
-                     sat_unit_desc, sat_key, sat_key_desc, price, currency, trade_mark)
-                    VALUES (@run, @code, @model, @winner, @category, @product, @name, @details, @unit,
-                            @unitdesc, @sat, @satdesc, @price, @currency, @mark)
-                    ON CONFLICT (run_id, code) DO UPDATE SET
-                        winner_key=EXCLUDED.winner_key, category_id=EXCLUDED.category_id,
-                        product_id=EXCLUDED.product_id,
-                        name=EXCLUDED.name, details=EXCLUDED.details,
-                        sat_unit=EXCLUDED.sat_unit, sat_unit_desc=EXCLUDED.sat_unit_desc,
-                        sat_key=EXCLUDED.sat_key, sat_key_desc=EXCLUDED.sat_key_desc,
-                        price=EXCLUDED.price, currency=EXCLUDED.currency, trade_mark=EXCLUDED.trade_mark
-                    WHERE EXCLUDED.winner_key < syscom_sync_staging.winner_key
-                    """, ct,
-                    ("run", runId), ("code", code), ("model", rawModel), ("winner", winnerKey),
-                    ("category", categoryId),
-                    ("product", product.ProductoId), ("name", name), ("details", product.Titulo),
-                    ("unit", Truncate(satUnit, 14)), ("unitdesc", Truncate(product.MeasurementUnit?.Nombre, 350)),
-                    ("sat", satKey), ("satdesc", Truncate(product.SatDescription, 350)),
-                    ("price", price), ("currency", currency), ("mark", Truncate(product.Marca, 70)));
-                staged++;
+                var json = JsonSerializer.Serialize(batch, StageJsonOptions);
+                var collision = await ScalarAsync(CollisionSql, ct, ("run", runId), ("rows", json));
+                if (collision is string collisionCode)
+                    throw new InvalidOperationException($"SYSCOM model code collision after normalization: {collisionCode}.");
+                await ExecuteAsync(StageBatchSql, ct, ("run", runId), ("rows", json));
             }
             await ExecuteAsync("""
                 UPDATE syscom_sync_runs SET pages_loaded=pages_loaded+1,
-                    products_seen=products_seen+@seen, products_skipped=products_skipped+@skipped,
-                    products_staged=(SELECT count(*) FROM syscom_sync_staging WHERE run_id=@run)
+                    products_seen=products_seen+@seen, products_skipped=products_skipped+@skipped
                 WHERE run_id=@run AND status='Running' AND stage='Downloading'
                 """, ct, ("run", runId), ("seen", products.Count), ("skipped", skipped));
             await uow.CommitTransactionAsync(ct);
-            logger.LogInformation("SYSCOM run {RunId} staged {Count} valid rows from one page; {Skipped} skipped.",
-                runId, staged, skipped);
+            logger.LogInformation("SYSCOM run {RunId} staged {Count} distinct valid rows from one page; {Skipped} skipped.",
+                runId, unique.Count, skipped);
         }
         catch
         {
@@ -115,8 +127,39 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
     }
 
     public Task CompleteDownloadAsync(Guid runId, CancellationToken ct) => ExecuteAsync("""
-        UPDATE syscom_sync_runs SET stage='Downloaded' WHERE run_id=@run AND status='Running' AND stage='Downloading'
+        UPDATE syscom_sync_runs SET stage='Downloaded',
+            products_staged=(SELECT count(*) FROM syscom_sync_staging WHERE run_id=@run)
+        WHERE run_id=@run AND status='Running' AND stage='Downloading'
         """, ct, ("run", runId));
+
+    private const string CollisionSql = """
+        SELECT s.code FROM syscom_sync_staging s
+        JOIN jsonb_to_recordset(@rows::jsonb) AS incoming(code text, raw_model text)
+          ON incoming.code=s.code
+        WHERE s.run_id=@run AND s.raw_model<>incoming.raw_model
+        LIMIT 1
+        """;
+
+    private const string StageBatchSql = """
+        INSERT INTO syscom_sync_staging
+        (run_id, code, raw_model, winner_key, category_id, product_id, name, details, sat_unit,
+         sat_unit_desc, sat_key, sat_key_desc, price, currency, trade_mark)
+        SELECT @run, incoming.code, incoming.raw_model, incoming.winner_key,
+            incoming.category_id, incoming.product_id, incoming.name, incoming.details,
+            incoming.sat_unit, incoming.sat_unit_desc, incoming.sat_key, incoming.sat_key_desc,
+            incoming.price, incoming.currency, incoming.trade_mark
+        FROM jsonb_to_recordset(@rows::jsonb) AS incoming(
+            code text, raw_model text, winner_key text, category_id bigint, product_id bigint,
+            name text, details text, sat_unit text, sat_unit_desc text, sat_key text,
+            sat_key_desc text, price numeric, currency text, trade_mark text)
+        ON CONFLICT (run_id, code) DO UPDATE SET
+            winner_key=EXCLUDED.winner_key, category_id=EXCLUDED.category_id,
+            product_id=EXCLUDED.product_id, name=EXCLUDED.name, details=EXCLUDED.details,
+            sat_unit=EXCLUDED.sat_unit, sat_unit_desc=EXCLUDED.sat_unit_desc,
+            sat_key=EXCLUDED.sat_key, sat_key_desc=EXCLUDED.sat_key_desc,
+            price=EXCLUDED.price, currency=EXCLUDED.currency, trade_mark=EXCLUDED.trade_mark
+        WHERE EXCLUDED.winner_key COLLATE "C" < syscom_sync_staging.winner_key COLLATE "C"
+        """;
 
     public async Task ExecSyncAsync(Guid runId, long companyId, CancellationToken ct)
     {

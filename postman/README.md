@@ -38,7 +38,7 @@ Sin las dos variables locales, las pruebas correspondientes aparecen como omitid
 
 La simulación usa routing por cabecera `x-mock-slug: syscom`, añadida solo por las
 pruebas. Los controles `/__control/reset?mode=...` y `/__control/state` son exclusivos
-del fixture. Modos: normal, transient (429/401/503), fail-page, repeat-page y missing.
+del fixture. Modos: normal, transient (429/401/503), fail-page, repeat-page, missing e incomplete (cantidad anunciada mayor que lo descargado).
 Nunca usar credenciales reales ni publicar este mock como contrato del proveedor.
 
 Al terminar, detener la simulación con Ctrl+C y eliminar el contenedor propio:

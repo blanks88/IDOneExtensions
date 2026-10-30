@@ -55,8 +55,12 @@ La retención elimina historial vencido mediante cascada, conservando la última
 exitosa de cada empresa como referencia. Los productos ausentes se registran contra
 esa referencia; no se eliminan ni inactivan automáticamente.
 
-Cada página se guarda en su propia transacción. Solo una descarga completa puede
+Cada página se guarda en su propia transacción, en lotes de hasta 500 registros.
+Se verifica el avance de páginas, se rechazan páginas vacías de una descarga no vacía
+y se compara la cantidad recibida con el total positivo anunciado por el proveedor.
+Solo una descarga completa puede
 promoverse. Catálogos, productos, precios, ausentes y éxito se confirman juntos.
+La confirmación es asíncrona y respeta la cancelación.
 No se reintenta automáticamente una promoción SQL fallida.
 
 ## Reglas de datos y alcance global

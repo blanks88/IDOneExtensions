@@ -32,23 +32,37 @@ public class SyscomWorker(ILoggerFactory loggerFactory, ISyscomClient client, IU
             {
                 var requestedPage = 1;
                 int? totalPages = null;
+                int? expectedProducts = null;
+                var receivedProducts = 0;
                 do
                 {
                     ct.ThrowIfCancellationRequested();
                     var response = await client.GetProductsAsync(
                         new SyscomProductsRequest { Categoria = checked((int)category.Id), Pagina = requestedPage }, ct);
+                    var emptyCatalogue = requestedPage == 1 && (response.Paginas is 0 or 1) &&
+                        response.Total == 0 && response.Products is { Count: 0 };
                     if (response.Products is null || response.PaginaActual != requestedPage ||
-                        (response.Paginas < requestedPage &&
-                         !(requestedPage == 1 && response.Paginas == 0 && response.Products.Count == 0)) ||
-                        (totalPages.HasValue && totalPages.Value != response.Paginas))
+                        (response.Paginas < requestedPage && !emptyCatalogue) ||
+                        (response.Products.Count == 0 && !emptyCatalogue) ||
+                        (totalPages.HasValue && totalPages.Value != response.Paginas) ||
+                        (response.Total > 0 && expectedProducts.HasValue &&
+                         expectedProducts.Value != response.Total))
                         throw new InvalidOperationException(
                             $"SYSCOM pagination did not advance for category {category.Id}, requested page {requestedPage}.");
                     totalPages = response.Paginas;
+                    if (response.Total > 0) expectedProducts ??= response.Total;
+                    receivedProducts = checked(receivedProducts + response.Products.Count);
+                    if (expectedProducts.HasValue && receivedProducts > expectedProducts.Value)
+                        throw new InvalidOperationException(
+                            $"SYSCOM product count exceeded the declared total for category {category.Id}.");
                     await database.BulkInsertAsync(runId.Value, category.Id, response.Products, ct);
                     _logger.LogInformation("Syscom category {CategoryId} page {Page} of {TotalPages} staged.",
                         category.Id, requestedPage, totalPages);
                     requestedPage++;
                 } while (requestedPage <= totalPages);
+                if (expectedProducts.HasValue && receivedProducts != expectedProducts.Value)
+                    throw new InvalidOperationException(
+                        $"SYSCOM product count did not match the declared total for category {category.Id}.");
             }
 
             await database.CompleteDownloadAsync(runId.Value, ct);

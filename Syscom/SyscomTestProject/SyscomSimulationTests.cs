@@ -93,4 +93,17 @@ public class SyscomSimulationTests
         Assert.Equal(2, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code LIKE 'SIM-%'"));
         Assert.Equal(1, await fixture.ScalarAsync("SELECT products_staged FROM syscom_sync_runs ORDER BY started_at DESC LIMIT 1"));
     }
+    [SimulationFact]
+    public async Task IncompleteAdvertisedTotal_DoesNotPromoteEvenWithAdvancingPages()
+    {
+        using var http = Http();
+        await Reset(http, "incomplete");
+        await using var fixture = await PostgresSyncFixture.CreateAsync();
+        await using var uow = fixture.CreateUnitOfWork();
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new SyscomWorker(NullLoggerFactory.Instance, Client(http), uow).RunAsync(CancellationToken.None));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed'"));
+        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code LIKE 'SIM-%'"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_prices WHERE portfolio_price_list_id=10 AND price=7"));
+    }
 }

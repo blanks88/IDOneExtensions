@@ -17,7 +17,7 @@ http.createServer(async (req, res) => {
   };
   if (url.pathname === '/__control/reset' && req.method === 'POST') {
     const mode = url.searchParams.get('mode') || 'normal';
-    if (!['normal', 'transient', 'fail-page', 'repeat-page', 'missing'].includes(mode))
+    if (!['normal', 'transient', 'fail-page', 'repeat-page', 'missing', 'incomplete'].includes(mode))
       return reply(400, {error: 'Unknown fixture mode'});
     await save(initial(mode)); return reply(200, {mode});
   }
@@ -49,7 +49,7 @@ http.createServer(async (req, res) => {
     if (state.mode === 'transient' && page === 1 && state.counts[id] === 2) return reply(503, {error: 'Temporary fixture outage'});
     if (state.mode === 'fail-page' && page === 2) return reply(503, {error: 'Permanent fixture outage'});
     const pages = state.mode === 'missing' ? 1 : 2;
-    return reply(200, {pagina: state.mode === 'repeat-page' ? 1 : page, paginas: pages, cantidad: pages, productos: [product(page)]});
+    return reply(200, {pagina: state.mode === 'repeat-page' ? 1 : page, paginas: pages, cantidad: state.mode === 'incomplete' ? 3 : pages, productos: [product(page)]});
   }
   await save(state); reply(501, {error: 'Outside synchronization contract'});
 }).listen(process.env.PORT);

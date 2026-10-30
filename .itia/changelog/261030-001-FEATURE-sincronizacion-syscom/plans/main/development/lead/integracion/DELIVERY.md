@@ -19,7 +19,7 @@ scheduler ni se ejecutó contra una cuenta o base remota.
 | Comprobación | Resultado |
 | --- | --- |
 | dotnet build IDOneExtensions.sln -c Release --no-restore | PASS; 0 warnings, 0 errores |
-| dotnet test IDOneExtensions.sln -c Release --no-build --no-restore con DB y simulación local | PASS; 40 aprobadas, 4 contra proveedor real omitidas |
+| dotnet test IDOneExtensions.sln -c Release --no-build --no-restore con DB y simulación local | PASS; 48 aprobadas, 4 contra proveedor real omitidas |
 | Suite sin variables locales | PASS; pruebas de PostgreSQL/simulación omitidas por diseño; ninguna conexión real |
 | Consola Release sin configuración | Código 2; imprime nombres de variables, no valores |
 | Simulación Postman CLI 1.83.1 | Tráfico real confirmado en logs: 429, renovación tras 401, recuperación 503 y fallo persistente acotado |
@@ -33,10 +33,20 @@ scheduler ni se ejecutó contra una cuenta o base remota.
 - Secretos eliminados del código de consola y pruebas; siguen en historial Git.
   Rotación y provisión del scheduler remoto no realizadas.
 - No hay medición con catálogo completo de producción; memoria acotada por página,
-  pero la carga mantiene SQL por producto dentro de la transacción de página.
+  con lotes de hasta 500 registros dentro de la transacción de página.
 - Cambios del checkout original no importados. Program.cs implementado desde la base
   versionada; README principal, Docker, Heroku y script del checkout original intactos.
 - Revisión independiente pendiente. Los reportes de agentes conservan evidencia
   previa; esta tabla es la verificación integrada posterior.
 - La captura de baseline de artefactos no se realizó antes de iniciar las contribuciones;
   se verifican el diff contra 638e297 y los bytes staged, sin afirmar ese control previo.
+
+## Correcciones de revisión
+
+CR-01: validación de cantidad positiva por categoría y rechazo de páginas vacías
+inconsistentes. CR-02: commit/rollback asíncronos con cancelación. CR-03: escrituras
+JSON por lotes de 500 y conteo único al completar descarga.
+Suite Release posterior: 48 aprobadas, 4 live omitidas; 52 casos totales.
+Pruebas nuevas: total incompleto/cambiante, página vacía, catálogo vacío, lote de 801,
+colisión dentro de página y cancelación antes de confirmar con rollback verificable.
+Revisión de correcciones pendiente sobre el siguiente commit.
