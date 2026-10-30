@@ -1,6 +1,6 @@
 # Configure these in the scheduler, container, CI or secret manager.
 # This file is an example only; SyscomApp does not load .env files.
-CONNECTION_STRING=REPLACE_WITH_CONNECTION_STRING
+ALUSA_CONNECTION_STRING=REPLACE_WITH_CONNECTION_STRING
 SYSCOM_CLIENT_ID=REPLACE_WITH_CLIENT_ID
 SYSCOM_CLIENT_SECRET=REPLACE_WITH_CLIENT_SECRET
 

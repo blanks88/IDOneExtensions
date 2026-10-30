@@ -11,7 +11,7 @@ using Syscom.Load;
 SyscomAppConfiguration configuration;
 try
 {
-    configuration = SyscomAppConfiguration.FromEnvironment();
+    configuration = SyscomAppConfiguration.FromEnvironment("ALUSA_CONNECTION_STRING");
 }
 catch (SyscomAppConfigurationException ex)
 {

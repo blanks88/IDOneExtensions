@@ -86,7 +86,7 @@ No se reintenta automáticamente una promoción SQL fallida.
 
 ## Configuración
 
-Obligatorias: `CONNECTION_STRING` (Npgsql), `SYSCOM_CLIENT_ID`, `SYSCOM_CLIENT_SECRET`.
+Obligatorias: `ALUSA_CONNECTION_STRING` (Npgsql), `SYSCOM_CLIENT_ID`, `SYSCOM_CLIENT_SECRET`.
 No se carga `.env` automáticamente. Proveer variables al proceso/scheduler. El ejemplo
 sin secretos está en `Syscom/SyscomApp/environment.example`.
 
