@@ -7,9 +7,14 @@ no se crea ni cambia por el solo hecho de desplegar el repositorio.
 
 ## Estado del lanzamiento
 
-La imagen amd64 está compilada y el runner comprobado. **Aún no se ha desplegado esta
-revisión ni comprobado dos ejecuciones programadas.** El usuario confirmó la BD remota compartida con alusa2-api y el plan trial-0
-de Advanced Scheduler; falta desplegar la API con su fase release y verificar el esquema.
+API desplegada en `alusa2-api`, release `v19`, commit `d53a53d`: la fase release
+aplicó la migración `20261030230000` y `portfolio_products.code` quedó en `text`.
+Worker desplegado en `alusa-syscom-sync`, release `v5`, con `web=0`.
+Dos ejecuciones programadas del 30/10/2026 a las 18:15 y 18:20 (Ciudad de México)
+terminaron con salida 0 y `Succeeded/Complete`, en 113.9 s y 121.1 s.
+Advanced Scheduler trial-0 quedó activo con `0 3 * * *`, `America/Mexico_City`.
+La próxima fecha calculada por esa configuración es 31/10/2026 a las 03:00 locales
+(09:00 UTC); todavía no se ha observado una ejecución diaria.
 
 [Plan y estado](.itia/changelog/261030-004-CHORE-lanzamiento-syscom-heroku/README.md).
 [Reglas y diagnóstico de la sincronización](.itia/docs/sincronizacion-syscom.md).

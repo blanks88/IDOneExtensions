@@ -312,6 +312,28 @@ con éxito tanto en el programador como en `syscom_sync_runs`. Después se cambi
 mismo trigger a diario a las 03:00 de `America/Mexico_City` y se verifica su próxima
 fecha. Las corridas manuales no prueban la periodicidad.
 
-Estado actual: imagen amd64 preparada; BD remota y plan trial-0 autorizados.
-Pendiente desplegar IDOneApi con migración en release y después el worker. La validación local anterior no demuestra todavía despliegue ni ejecución
-en Heroku. Cada fix del lanzamiento tendrá su commit y actualizará esta documentación.
+Estado actual: API `v19` y worker `v5` desplegados. La fase release de Rails aplicó
+la migración `20261030230000`; `code=text`. Las ejecuciones programadas de las 18:15 y 18:20 del 30/10/2026
+terminaron correctamente; el mismo trigger trial-0 quedó activo con `0 3 * * *`
+en `America/Mexico_City`. La primera ejecución diaria aún no se ha observado.
+
+| Hora local programada | Run ID | Duración | Resultado |
+|---|---|---|---|
+| 18:15 | `21a02488-bafc-458b-b46e-9e65014a0a79` | 113.9 s | scheduled, succeeded, salida 0 |
+| 18:20 | `ce4f0374-6504-4847-9f67-e359901633ca` | 121.1 s | scheduled, succeeded, salida 0 |
+
+Cada corrida descargó 100 páginas, promovió 32,728 productos únicos y recalculó
+583,524 precios. La auditoría independiente encontró cero diferencias en promoción
+y valores globales. Se conservaron los 65,322 IDs del baseline, sus empresas y las
+filas completas de listas fijas; siete códigos legados se ampliaron sin cambiar ID.
+`finished_at` en la BD se captura antes de terminar la promoción; las duraciones y
+el fin real se contrastaron con métricas y logs de salida del dyno.
+
+Correcciones del lanzamiento:
+- `d53a53d` (IDOneApi): migraciones mediante `release: bundle exec rails db:migrate`.
+- `d369563`: SDK nativo con `BUILDPLATFORM` y publicación para `TARGETARCH`, evitando
+  el fallo de QEMU en restore; exclusión de worktrees y diagnósticos del contexto.
+- `1ab6001`: publicación Docker V2 mediante Buildx; Heroku rechazaba manifiestos OCI.
+
+Se conservan IDs existentes, modelos completos y listas fijas. El recálculo sigue
+siendo global, incluye precios positivos y usa las tasas configuradas.
