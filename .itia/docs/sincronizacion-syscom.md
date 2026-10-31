@@ -303,3 +303,15 @@ del orquestador.
 
 Esta comprobación confirma una ejecución completa en el entorno local. No constituye
 un despliegue productivo ni garantiza disponibilidad futura del proveedor.
+
+## Lanzamiento programado en Heroku
+
+El ciclo de lanzamiento se documenta en [README.heroku.md](../../README.heroku.md).
+La aceptación requiere dos ejecuciones realmente programadas cada cinco minutos,
+con éxito tanto en el programador como en `syscom_sync_runs`. Después se cambia el
+mismo trigger a diario a las 03:00 de `America/Mexico_City` y se verifica su próxima
+fecha. Las corridas manuales no prueban la periodicidad.
+
+Estado actual: imagen amd64 preparada; BD remota y plan trial-0 autorizados.
+Pendiente desplegar IDOneApi con migración en release y después el worker. La validación local anterior no demuestra todavía despliegue ni ejecución
+en Heroku. Cada fix del lanzamiento tendrá su commit y actualizará esta documentación.
