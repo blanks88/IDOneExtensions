@@ -32,3 +32,13 @@ configuración. Revisión independiente sin bloqueos. El código funcional no ca
 API desplegada: d53a53d, release v19 succeeded. Migración20261030230000 aplicada,
 code=text. Comparación posterior:65322 identidades previas y listas fijas intactas;
 web.1/worker.1 up. Todavía no se activó el trigger de sincronización.
+
+## Fix — formato de manifiesto compatible con Heroku
+
+El push original subió capas pero Heroku rechazó el manifiesto OCI con unsupported.
+La inspección local confirmó application/vnd.oci.image.manifest.v1+json. Se corrigió
+el procedimiento para publicar directamente desde Buildx con oci-mediatypes=false,
+provenance=false y sbom=false. El registro aceptó la imagen y la inspección remota
+confirmó application/vnd.docker.distribution.manifest.v2+json.
+Digest: sha256:8ad727820a1e89286ca8a912ddee5d5bc7c4d36cd00d7121c1e8b6ef9e49c56e.
+Este fix afecta el formato de publicación; no altera las reglas de sincronización.

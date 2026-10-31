@@ -52,14 +52,25 @@ argumentos automáticos. Los diagnósticos locales y worktrees se excluyen del c
 ## Construir y desplegar
 
 ```sh
-docker build --platform linux/amd64 \
+# Instalar Buildx por el canal oficial si no está disponible.
+# Crear este builder una vez; reutilizarlo en los siguientes despliegues.
+docker buildx create --name idone-heroku --driver docker-container
+heroku container:login
+docker buildx build --builder idone-heroku --platform linux/amd64 \
+  --provenance=false --sbom=false \
+  --output type=registry,oci-mediatypes=false \
   -f Syscom/SyscomApp/Dockerfile \
   -t registry.heroku.com/alusa-syscom-sync/web .
-heroku container:login
-docker push registry.heroku.com/alusa-syscom-sync/web
+docker buildx imagetools inspect registry.heroku.com/alusa-syscom-sync/web:latest
 heroku container:release web -a alusa-syscom-sync
 heroku ps:scale web=0 -a alusa-syscom-sync
 ```
+
+Heroku requiere `application/vnd.docker.distribution.manifest.v2+json`. Un `docker push`
+convencional puede conservar un manifiesto OCI y ser rechazado con `unsupported`.
+Publicar directamente desde Buildx con `oci-mediatypes=false` evita esa conversión.
+Si Homebrew instala el ejecutable separado, `docker-buildx` admite los mismos argumentos;
+no es necesario modificar globalmente la configuración de Docker.
 
 Registrar la revisión, digest de imagen y release desplegados. El runner
 `/app/bin/run-syscom` usa `exec dotnet /app/SyscomApp.dll`, conserva salida y señales.
