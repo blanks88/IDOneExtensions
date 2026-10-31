@@ -42,6 +42,13 @@ Opcionales: `SYSCOM_PAGE_SIZE` (500), `SYSCOM_BUFFERED_PAGES` (2),
 Los valores entre paréntesis son los predeterminados. La empresa limita la promoción
 del catálogo; el recálculo de listas porcentuales sigue siendo global.
 
+## Compilar sin emular el SDK
+
+El SDK usa `BUILDPLATFORM` y publica para `TARGETARCH`; la imagen final sigue siendo
+`linux/amd64`. Esto evita ejecutar dotnet restore bajo QEMU en equipos ARM, donde
+se reprodujo una terminación por señal 11. BuildKit/Buildx es requisito para estos
+argumentos automáticos. Los diagnósticos locales y worktrees se excluyen del contexto.
+
 ## Construir y desplegar
 
 ```sh

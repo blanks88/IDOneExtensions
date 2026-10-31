@@ -19,3 +19,16 @@ Imagen Docker amd64 del worker compilada desde78c5b24. Runner verificado sin
 credenciales: salida2 y nombres de variables requeridas, sin datos sensibles.
 Dos agentes Sol/medium revisaron despliegue y periodicidad. No se ha publicado la
 imagen, ejecutado corridas programadas ni creado PR.
+
+## Fix — SDK nativo durante compilación cruzada
+
+El SDK amd64 ejecutado por QEMU en el builder ARM falló en dotnet restore con señal11
+(salida139). El Dockerfile ahora ejecuta el SDK en BUILDPLATFORM y restaura/publica
+para TARGETARCH, manteniendo runtime amd64 y publicación framework-dependent.
+Se excluyen worktrees y diagnósticos temporales del contexto Docker.
+Validación: compilación Buildx completa, imagen amd64 y runner con salida2 al faltar
+configuración. Revisión independiente sin bloqueos. El código funcional no cambió.
+
+API desplegada: d53a53d, release v19 succeeded. Migración20261030230000 aplicada,
+code=text. Comparación posterior:65322 identidades previas y listas fijas intactas;
+web.1/worker.1 up. Todavía no se activó el trigger de sincronización.
