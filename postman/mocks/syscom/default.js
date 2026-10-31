@@ -17,7 +17,7 @@ http.createServer(async (req, res) => {
   };
   if (url.pathname === '/__control/reset' && req.method === 'POST') {
     const mode = url.searchParams.get('mode') || 'normal';
-    if (!['normal', 'transient', 'fail-page', 'repeat-page', 'missing', 'incomplete'].includes(mode))
+    if (!['normal', 'transient', 'fail-page', 'repeat-page', 'missing', 'incomplete', 'paged'].includes(mode))
       return reply(400, {error: 'Unknown fixture mode'});
     await save(initial(mode)); return reply(200, {mode});
   }
@@ -43,8 +43,17 @@ http.createServer(async (req, res) => {
   }
   if (req.method === 'GET' && url.pathname === '/api/v1/productos') {
     const page = Number(url.searchParams.get('pagina'));
-    if (url.searchParams.get('categoria') !== '1' || ![1,2].includes(page)) return reply(400, {error: 'Invalid pagination'});
+    const limit = url.searchParams.has('limit') ? Number(url.searchParams.get('limit')) : 60;
+    if (!Number.isInteger(limit) || limit < 10 || limit > 1000) return reply(400, {error: 'Invalid limit'});
+    const pageCount = state.mode === 'paged' ? Math.ceil(1200 / limit) : 2;
+    if (url.searchParams.get('categoria') !== '1' || !Number.isInteger(page) || page < 1 || page > pageCount)
+      return reply(400, {error: 'Invalid pagination'});
     await save(state);
+    if (state.mode === 'paged') {
+      const start = (page - 1) * limit;
+      return reply(200, {pagina: page, paginas: pageCount, cantidad: 1200,
+        productos: Array.from({length: Math.min(limit, 1200 - start)}, (_, i) => product(start + i + 1))});
+    }
     if (state.mode === 'transient' && page === 1 && state.counts[id] === 1) return reply(401, {error: 'Expired fixture token'});
     if (state.mode === 'transient' && page === 1 && state.counts[id] === 2) return reply(503, {error: 'Temporary fixture outage'});
     if (state.mode === 'fail-page' && page === 2) return reply(503, {error: 'Permanent fixture outage'});

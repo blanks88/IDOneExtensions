@@ -23,3 +23,6 @@
 **/values.dev.yaml
 LICENSE
 README.md
+# Local worktrees and disposable deployment diagnostics
+.worktrees
+.itia/tmp

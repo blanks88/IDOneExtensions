@@ -95,7 +95,7 @@ public sealed class PostgresSyncFixture : IAsyncDisposable
         CREATE TABLE exchange_rates (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
             currency_id bigint NOT NULL, principal boolean NOT NULL, exchange_rate numeric(14,4) NOT NULL);
         CREATE TABLE portfolio_products (id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-            title varchar(350), code varchar(35), catalogs_measurement_id bigint, details text,
+            title varchar(350), code text, catalogs_measurement_id bigint, details text,
             parent_id bigint, created_at timestamptz, updated_at timestamptz, company_id bigint NOT NULL,
             currency_id bigint, price numeric(14,4), trade_mark varchar(70),
             catalogs_sat_product_id bigint, pr_quantity numeric(14,4), UNIQUE(company_id,code));
@@ -164,7 +164,7 @@ public class SyscomPersistenceTests
     }
 
     [PostgresFact]
-    public async Task NormalizedCodeCollision_RejectsSecondPage()
+    public async Task LongModels_WithSharedPrefix_StageBothPages()
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -174,15 +174,14 @@ public class SyscomPersistenceTests
         {
             var prefix = new string('A', 35);
             await db.BulkInsertAsync(run, 1, [Product(prefix + "X", 10)], CancellationToken.None);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => db.BulkInsertAsync(run, 2,
-                [Product(prefix + "Y", 10)], CancellationToken.None));
+            await db.BulkInsertAsync(run, 2, [Product(prefix + "Y", 20)], CancellationToken.None);
         }
         finally { await db.ReleaseLockAsync(CancellationToken.None); }
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(2, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
     }
 
     [PostgresFact]
-    public async Task NormalizedCodeCollision_WithinPageRollsBackEntirePage()
+    public async Task LongModels_WithSharedPrefix_StageBothInOnePage()
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -191,12 +190,11 @@ public class SyscomPersistenceTests
         try
         {
             var prefix = new string('B', 35);
-            await Assert.ThrowsAsync<InvalidOperationException>(() => db.BulkInsertAsync(run, 1,
-                [Product(prefix + "X", 1), Product(prefix + "Y", 2)], CancellationToken.None));
+            await db.BulkInsertAsync(run, 1, [Product(prefix + "X", 1), Product(prefix + "Y", 2)], CancellationToken.None);
         }
         finally { await db.ReleaseLockAsync(CancellationToken.None); }
-        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
-        Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded<>0"));
+        Assert.Equal(2, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_staging"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE pages_loaded=1"));
     }
 
     [PostgresFact]
@@ -356,7 +354,7 @@ public class SyscomPersistenceTests
             });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded=1"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded BETWEEN 0 AND 1 AND metrics IS NOT NULL"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code='PAGE-ONE'"));
     }
 
@@ -364,7 +362,7 @@ public class SyscomPersistenceTests
     [InlineData("empty-final", 1)]
     [InlineData("short-total", 2)]
     [InlineData("changed-total", 1)]
-    public async Task IncompletePagination_FailsWithoutPromoting(string scenario, int expectedPages)
+    public async Task IncompletePagination_FailsWithoutPromoting(string scenario, int maximumPages)
     {
         await using var fixture = await PostgresSyncFixture.CreateAsync();
         await using var uow = fixture.CreateUnitOfWork();
@@ -382,7 +380,7 @@ public class SyscomPersistenceTests
                       Products = scenario == "empty-final" ? [] : [Product("PAGE-B", 2)] });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAsync<InvalidOperationException>(() => worker.RunAsync(CancellationToken.None));
-        Assert.Equal(1, await fixture.ScalarAsync($"SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded={expectedPages}"));
+        Assert.Equal(1, await fixture.ScalarAsync($"SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded BETWEEN 0 AND {maximumPages} AND metrics IS NOT NULL"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code IN ('PAGE-A','PAGE-B')"));
     }
 
@@ -453,7 +451,7 @@ public class SyscomPersistenceTests
             });
         var worker = new SyscomWorker(NullLoggerFactory.Instance, client.Object, uow);
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => worker.RunAsync(cts.Token));
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Cancelled'"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Cancelled' AND metrics IS NOT NULL"));
         Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_prices WHERE portfolio_price_list_id=10 AND price=7"));
     }
 

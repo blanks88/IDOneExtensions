@@ -1,4 +1,5 @@
 using System.Globalization;
+using Syscom.Load;
 
 namespace Syscom;
 
@@ -14,7 +15,9 @@ public sealed record SyscomAppConfiguration(
     TimeSpan RequestTimeout,
     TimeSpan MaximumDuration,
     int RetentionDays,
-    long CompanyId)
+    long CompanyId,
+    int PageSize = 500,
+    int BufferedPages = 2)
 {
     private static readonly string[] EnvironmentNames =
     [
@@ -27,8 +30,19 @@ public sealed record SyscomAppConfiguration(
         "SYSCOM_REQUEST_TIMEOUT_SECONDS",
         "SYSCOM_MAXIMUM_DURATION_SECONDS",
         "SYSCOM_RETENTION_DAYS",
-        "SYSCOM_COMPANY_ID"
+        "SYSCOM_COMPANY_ID",
+        "SYSCOM_PAGE_SIZE",
+        "SYSCOM_BUFFERED_PAGES"
     ];
+
+    public SyscomSyncOptions ToSyncOptions() => new()
+    {
+        MaximumDuration = MaximumDuration,
+        RetentionDays = RetentionDays,
+        CompanyId = CompanyId,
+        PageSize = PageSize,
+        BufferedPages = BufferedPages
+    };
 
     public static SyscomAppConfiguration FromEnvironment(string connectionStringVariable = "CONNECTION_STRING")
     {
@@ -89,7 +103,9 @@ public sealed record SyscomAppConfiguration(
             TimeSpan.FromSeconds(requestTimeout),
             TimeSpan.FromSeconds(maximumDuration),
             ReadPositiveInt("SYSCOM_RETENTION_DAYS", 30, 1, 3650),
-            ReadPositiveInt("SYSCOM_COMPANY_ID", 1, 1, int.MaxValue));
+            ReadPositiveInt("SYSCOM_COMPANY_ID", 1, 1, int.MaxValue),
+            ReadPositiveInt("SYSCOM_PAGE_SIZE", 500, 10, 1000),
+            ReadPositiveInt("SYSCOM_BUFFERED_PAGES", 2, 1, 16));
 
         int ReadPositiveInt(string name, int defaultValue, int minimum, int maximum)
         {

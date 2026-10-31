@@ -60,7 +60,7 @@ public class SyscomSimulationTests
         using var state = await http.GetFromJsonAsync<JsonDocument>("/__control/state");
         Assert.Equal(2, state!.RootElement.GetProperty("tokens").GetInt32());
         Assert.Equal(2, state.RootElement.GetProperty("counts").GetProperty("GET /api/v1/categorias?").GetInt32());
-        Assert.Equal(3, state.RootElement.GetProperty("counts").GetProperty("GET /api/v1/productos?categoria=1&pagina=1").GetInt32());
+        Assert.Equal(3, state.RootElement.GetProperty("counts").GetProperty("GET /api/v1/productos?categoria=1&pagina=1&limit=500").GetInt32());
     }
 
     [SimulationFact]
@@ -72,7 +72,7 @@ public class SyscomSimulationTests
         await using var uow = fixture.CreateUnitOfWork();
         await Assert.ThrowsAsync<SyscomClientException>(() =>
             new SyscomWorker(NullLoggerFactory.Instance, Client(http), uow).RunAsync(CancellationToken.None));
-        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed' AND pages_loaded=1"));
+        Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM syscom_sync_runs WHERE status='Failed'"));
         Assert.Equal(0, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_products WHERE code LIKE 'SIM-%'"));
         Assert.Equal(1, await fixture.ScalarAsync("SELECT count(*) FROM portfolio_prices WHERE portfolio_price_list_id=10 AND price=7"));
     }

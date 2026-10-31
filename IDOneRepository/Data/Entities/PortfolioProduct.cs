@@ -22,7 +22,6 @@ public partial class PortfolioProduct
     public string? Title { get; set; }
 
     [Column("code")]
-    [StringLength(35)]
     public string? Code { get; set; }
 
     [Column("catalogs_measurement_id")]
