@@ -1,0 +1,10 @@
+version: 1
+name: syscom
+slug: syscom
+protocol: http
+origin: developers.syscom.mx
+interceptRequests: true
+scenarios:
+  - name: default
+    path: ./default.js
+    default: true

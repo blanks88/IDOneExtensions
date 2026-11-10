@@ -63,22 +63,22 @@ public class UnitOfWork : IUnitOfWork
         return _currentTransaction;
     }
 
-    public Task CommitTransactionAsync(CancellationToken ct = default)
+    public async Task CommitTransactionAsync(CancellationToken ct = default)
     {
-        if (_currentTransaction == null) return Task.CompletedTask;
-        _currentTransaction.Commit();
-        _currentTransaction.Dispose();
+        if (_currentTransaction == null) return;
+        ct.ThrowIfCancellationRequested();
+        await _currentTransaction.CommitAsync(ct);
+        await _currentTransaction.DisposeAsync();
         _currentTransaction = null;
-        return Task.CompletedTask;
     }
 
-    public Task RollbackTransactionAsync(CancellationToken ct = default)
+    public async Task RollbackTransactionAsync(CancellationToken ct = default)
     {
-        if (_currentTransaction == null) return Task.CompletedTask;
-        _currentTransaction.Rollback();
-        _currentTransaction.Dispose();
+        if (_currentTransaction == null) return;
+        ct.ThrowIfCancellationRequested();
+        await _currentTransaction.RollbackAsync(ct);
+        await _currentTransaction.DisposeAsync();
         _currentTransaction = null;
-        return Task.CompletedTask;
     }
 
     #region Raw SQL helpers
@@ -110,15 +110,14 @@ public class UnitOfWork : IUnitOfWork
 
     #endregion
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         if (_currentTransaction != null)
         {
-            _currentTransaction.Dispose();
+            await _currentTransaction.DisposeAsync();
             _currentTransaction = null;
         }
 
-        _context.Dispose();
-        return default;
+        await _context.DisposeAsync();
     }
 }

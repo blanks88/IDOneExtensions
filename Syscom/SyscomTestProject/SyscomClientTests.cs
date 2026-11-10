@@ -8,8 +8,9 @@ namespace SyscomTestProject;
 public class SyscomClientTests(ITestOutputHelper testOutputHelper)
 {
     private readonly SyscomClient _client = new(new HttpClient(),
-        new SyscomClientOptions("s478EpzmgpnoaIw7Q3YVAdLpaEAF3h8L",
-            "RPFBY1PHDosiHRpy5K5CGQTxmwufB1ZrJMKx5JRn")
+        new SyscomClientOptions(
+            Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_CLIENT_ID") ?? string.Empty,
+            Environment.GetEnvironmentVariable("SYSCOM_INTEGRATION_CLIENT_SECRET") ?? string.Empty)
     );
 
     [Fact(Skip = "This test requires a valid Syscom API key")]
@@ -23,7 +24,7 @@ public class SyscomClientTests(ITestOutputHelper testOutputHelper)
         Assert.NotNull(result);
         Assert.NotNull(result.AccessToken);
         
-        testOutputHelper.WriteLine($"Access token was received: {result.AccessToken}");
+        testOutputHelper.WriteLine("Access token was received.");
     }
 
     [Fact(Skip = "This test requires a valid Syscom API key")]

@@ -1,0 +1,10 @@
+#!/bin/sh
+# Strips co-authorship trailers from the final commit message, case-insensitive.
+set -eu
+
+message_file=$1
+filtered_message=$(mktemp "${message_file}.filtered.XXXXXX")
+trap 'rm -f "$filtered_message"' EXIT HUP INT TERM
+
+LC_ALL=C awk 'tolower($0) !~ /^[[:space:]]*co-authored-by:/' "$message_file" > "$filtered_message"
+cat "$filtered_message" > "$message_file"

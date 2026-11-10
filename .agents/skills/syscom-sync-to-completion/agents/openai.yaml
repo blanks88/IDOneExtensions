@@ -1,0 +1,4 @@
+interface:
+  display_name: "SYSCOM: sincronización de punta a punta"
+  short_description: "Diagnosticar y corregir hasta verificar la sincronización"
+  default_prompt: "Usa $syscom-sync-to-completion para ejecutar y corregir la sincronización hasta verificarla en la base destino, con un commit por fix y documentación actualizada."
