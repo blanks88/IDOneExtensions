@@ -129,6 +129,8 @@ public sealed partial class SyscomDatabaseWorker(ILogger<SyscomDatabaseWorker> l
     }
 
     public Task CompleteDownloadAsync(Guid runId, CancellationToken ct) => ExecuteAsync("""
+        -- The new run must be represented in planner statistics before promotion joins.
+        ANALYZE syscom_sync_staging;
         UPDATE syscom_sync_runs SET stage='Downloaded',
             products_staged=(SELECT count(*) FROM syscom_sync_staging WHERE run_id=@run)
         WHERE run_id=@run AND status='Running' AND stage='Downloading'

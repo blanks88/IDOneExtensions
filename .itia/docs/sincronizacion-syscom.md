@@ -337,3 +337,15 @@ Correcciones del lanzamiento:
 
 Se conservan IDs existentes, modelos completos y listas fijas. El recálculo sigue
 siendo global, incluye precios positivos y usa las tasas configuradas.
+
+## Estadísticas de staging antes de promover
+
+Cada descarga completa ejecuta `ANALYZE syscom_sync_staging` antes de marcarla
+`Downloaded`. El nuevo `run_id` agrega decenas de miles de filas y puede no existir
+en las estadísticas usadas por el optimizador. Esperar al autoanálisis permite una
+estimación de una fila y un nested-loop anti join cuadrático al detectar ausentes;
+la consulta puede agotar el timeout de 30 segundos y revertir toda la promoción.
+Actualizar estadísticas conserva la comparación por `raw_model`, la transacción,
+los precios globales y los límites de tiempo existentes. No agrega índices ni DDL.
+La regresión `SyscomStagingStatisticsTests` reproduce dos descargas de 33,000 modelos
+sin autoanálisis y verifica estimación, promoción, ausentes y listas fijas.
