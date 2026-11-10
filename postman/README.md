@@ -38,7 +38,7 @@ Sin las dos variables locales, las pruebas correspondientes aparecen como omitid
 
 La simulación usa routing por cabecera `x-mock-slug: syscom`, añadida solo por las
 pruebas. Los controles `/__control/reset?mode=...` y `/__control/state` son exclusivos
-del fixture. Modos: normal, transient (429/401/503), fail-page, repeat-page, missing e incomplete (cantidad anunciada mayor que lo descargado).
+del fixture. Modos: normal, transient (429/401/503), fail-page, repeat-page, missing e incomplete (cantidad anunciada mayor que lo descargado), además de paged (1,200 productos estables que respetan limit).
 Nunca usar credenciales reales ni publicar este mock como contrato del proveedor.
 
 Al terminar, detener la simulación con Ctrl+C y eliminar el contenedor propio:
@@ -46,3 +46,9 @@ Al terminar, detener la simulación con Ctrl+C y eliminar el contenedor propio:
 ```sh
 docker stop idone-sync-tests
 ```
+
+La prueba `SyscomPerformanceSimulationTests` compara páginas de 60, 500 y 1000
+productos: 20, 3 y 2 solicitudes, respectivamente. Comprueba los mismos 1,200
+productos y el recálculo global, incluidas otras empresas y las listas fijas.
+Para observar tiempos locales usar `--logger "console;verbosity=detailed"`.
+Los tiempos del simulador no predicen la latencia ni el throughput de producción.

@@ -5,6 +5,30 @@ This repository contains extensions and data access components for IDigital/IDOn
 ## Syscom
 Visit [README.md](Syscom/README.md) in the Syscom folder for more information.
 
+### Running the Syscom sync (SyscomApp)
+`Syscom/SyscomApp` is a console app that syncs the Syscom catalog into the database and then exits, so it can be
+run by any scheduler (Heroku Scheduler, cron, etc.).
+
+Configuration is read only from environment variables; nothing is hardcoded and the app fails fast if one is missing:
+
+| Variable               | Description                                                                         |
+|------------------------|-------------------------------------------------------------------------------------|
+| `ALUSA_CONNECTION_STRING`    | Npgsql connection string for the IDOne database (not a `postgres://` URL)           |
+| `SYSCOM_CLIENT_ID`     | Syscom API client id                                                                |
+| `SYSCOM_CLIENT_SECRET` | Syscom API client secret                                                            |
+
+Run locally:
+```bash
+export ALUSA_CONNECTION_STRING="Host=<host>;Port=5432;Database=<db>;User ID=<user>;Password=<password>;SSL Mode=Require"
+export SYSCOM_CLIENT_ID="<value>"
+export SYSCOM_CLIENT_SECRET="<value>"
+dotnet run --project Syscom/SyscomApp
+```
+
+#### Deploy on Heroku with Heroku Scheduler
+See [README.heroku.md](README.heroku.md) for the complete deployment process (config vars, image build and release,
+manual test run, hourly Scheduler job running `/app/bin/run-syscom`, operations and troubleshooting).
+
 ## IDOneRepository
 Location: Syscom/IDOneRepository
 
