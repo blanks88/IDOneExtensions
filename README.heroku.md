@@ -5,7 +5,22 @@ como `web`, manteniendo `web=0`; cada ejecución programada usa un dyno independ
 El destino previsto es `alusa-syscom-sync`. La configuración remota del programador
 no se crea ni cambia por el solo hecho de desplegar el repositorio.
 
-## Estado del lanzamiento
+## Estado verificado el 10 de noviembre de 2026
+
+La aplicación `alusa-syscom-sync` ejecuta la corrección `2c56ef9` en release `v5`.
+Se actualizan estadísticas de staging antes de promover para evitar el timeout de
+comparación de ausentes. La ejecución manual `a1620128-d844-43d9-b4a6-b826435499d2`
+terminó a las 15:38:27 de Ciudad de México en 147.5 segundos, con salida 0 y
+`Succeeded/Complete`: 101 páginas, 47,046 registros recibidos, 33,056 modelos únicos,
+ningún omitido y 587,052 precios porcentuales reemplazados. La reconciliación de
+catálogo/precios no encontró diferencias; conservó los 65,593 IDs anteriores con
+su empresa/código y las 278,567 filas completas de precios fijos. Se registraron
+20 modelos ausentes sin borrarlos. La programación no se modificó y la siguiente
+ejecución diaria aún no se ha observado con esta versión.
+
+[Corrección y verificación](.itia/changelog/261110-001-HOTFIX-timeout-promocion-syscom/README.md).
+
+## Histórico del lanzamiento del 30 de octubre de 2026
 
 API desplegada en `alusa2-api`, release `v19`, commit `d53a53d`: la fase release
 aplicó la migración `20261030230000` y `portfolio_products.code` quedó en `text`.

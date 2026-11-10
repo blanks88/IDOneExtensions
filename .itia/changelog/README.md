@@ -6,4 +6,4 @@
 | [261030-002-FEATURE-rendimiento-sincronizacion-syscom](261030-002-FEATURE-rendimiento-sincronizacion-syscom/README.md) | Implementación local terminada; 81 PASS,4 SKIP; revisión PASS |
 | [261030-003-BUGFIX-modelos-completos-syscom](261030-003-BUGFIX-modelos-completos-syscom/README.md) | Fix local verificado; 94 PASS,9 SKIP; migración API4 PASS |
 | [261030-004-CHORE-lanzamiento-syscom-heroku](261030-004-CHORE-lanzamiento-syscom-heroku/README.md) | Lanzamiento en curso; imagen lista, trial-0 autorizado; aceptación remota pendiente |
-| [261110-001-HOTFIX-timeout-promocion-syscom](261110-001-HOTFIX-timeout-promocion-syscom/README.md) | Corrección local validada; despliegue y actualización en curso |
+| [261110-001-HOTFIX-timeout-promocion-syscom](261110-001-HOTFIX-timeout-promocion-syscom/README.md) | Corregido en v5; sincronización y reconciliación completas; revisión independiente PASS |

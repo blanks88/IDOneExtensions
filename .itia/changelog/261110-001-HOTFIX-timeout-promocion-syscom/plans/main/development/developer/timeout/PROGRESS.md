@@ -3,24 +3,24 @@
 - Change / plan / task: 261110-001-HOTFIX-timeout-promocion-syscom / main / timeout
 - Agent / commit owner: developer (Codex)
 - Started at: 2026-11-10 15:30:11 -0600 (America/Mexico_City)
-- Updated: 2026-11-10 15:33:32 -0600 (America/Mexico_City)
-- Finished at: Pending
-- State: IN_PROGRESS
+- Updated: 2026-11-10 15:40:32 -0600 (America/Mexico_City)
+- Finished at: 2026-11-10 15:40:32 -0600 (America/Mexico_City)
+- State: HANDED_OFF
 - Baseline: feature/syscom-heroku-release / ffd365b; clean checkout.
-- Last implementation commit: None yet.
+- Last implementation commit: 2c56ef9; statistics fix, regression and operating guidance.
 - Plan: [main](../../../PLAN.md)
 
 ## Completed
 
-Production read-only reproduction: missing-products comparison exceeded a 35-second statement timeout. Planner estimates one new-run row instead of 33,051 and chooses a nested-loop anti join. Local regression reproduced the one-row estimate, then passed with explicit ANALYZE after download. Full local suite passed; provider/simulation-only checks remain separate.
+Cause reproduced on production and in an isolated regression. Fix committed, independently verified and reviewed, deployed as release v5, and used for a successful real synchronization. Read-only reconciliation confirmed complete catalog/price application and preserved identity/fixed lists.
 
 ## Remaining
 
-Commit the validated fix, deploy, run once, reconcile production and preserve protected rows; independent QA remains pending.
+No implementation/recovery work; next scheduled execution has not been observed. GitHub push was not requested.
 
 ## Next action
 
-Deploy the fixed image after committing the implementation.
+Normal scheduled operation. [Delivery](DELIVERY.md).
 
 ## Blockers
 
